@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: mainframe-modernization
+  version: 0.1.0
+  description: |
+    Local, template-generated contract for Copilot-driven implementation.
+    Refine operations and schemas based on requirements.md and spec.md.
+paths:
+  /health:
+    get:
+      summary: Health endpoint
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    Placeholder:
+      type: object
+      additionalProperties: true
+x-agent:
+  name: OpenApiAgent
+x-prompt-template: |-
+  # OpenAPI Prompt
+  
+  Generate an OpenAPI contract skeleton based on requirements and specification.
+  
+  Include:
+  - Core resources and operations
+  - Request/response schemas
+  - Error payload schema
+  - Versioning notes

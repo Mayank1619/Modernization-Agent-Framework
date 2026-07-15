@@ -1,0 +1,16 @@
+name: mainframe_modernization
+description: Mainframe modernization artifact generation pipeline for legacy-first analysis and spec-driven delivery.
+agents:
+  - name: LegacyAnalysisAgent
+  - name: BusinessRulesAgent
+  - name: RequirementsAgent
+  - name: SpecAgent
+  - name: PlanAgent
+  - name: TaskAgent
+  - name: MappingMatrixAgent
+  - name: TestSpecAgent
+  - name: OpenApiAgent
+  - name: CopilotPromptAgent
+  - name: QAReviewAgent
+  - name: CodeReviewAgent
+  - name: ReportAgent

@@ -1,0 +1,14 @@
+name: greenfield_sdd
+description: Spec-driven development pipeline for greenfield systems without legacy code input.
+agents:
+  - name: RequirementsAgent
+  - name: SpecAgent
+  - name: PlanAgent
+  - name: TaskAgent
+  - name: MappingMatrixAgent
+  - name: TestSpecAgent
+  - name: OpenApiAgent
+  - name: CopilotPromptAgent
+  - name: QAReviewAgent
+  - name: CodeReviewAgent
+  - name: ReportAgent
