@@ -1,31 +1,3 @@
-# copilot-build-prompt.md
-
-Status: DRY RUN
-
-Agent: CopilotPromptAgent
-Purpose: Generate implementation prompts that can be pasted directly into GitHub Copilot.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/mapping-matrix.md
-- output/plan.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-- output/tasks.md
-- output/test-spec.md
-- output/traceability-matrix.md
-- output/openapi.yaml
-
-## Prompt Template
-
 # Copilot Implementation Prompt
 
 Use generated artifacts to produce implementation code in iterative pull requests.
@@ -44,210 +16,66 @@ Guidance:
 - Keep business logic in services
 - Add tests for every business rule
 
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.c
-
-## Source: output/mapping-matrix.md
-
-# mapping-matrix.md
-
-Status: DRY RUN
-
-Agent: MappingMatrixAgent
-Purpose: Create mapping and traceability matrices from requirements through implementation.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/plan.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-- output/tasks.md
-
-## Prompt Template
-
-# Mapping Matrix Prompt
-
-Generate mapping and traceability matrices.
-
-Produce:
-- Legacy artifact to modern component mapping
-- Requirement to spec to test traceability
-- Rule-to-test
-
-## Source: output/plan.md
-
-# plan.md
-
-Status: DRY RUN
-
-Agent: PlanAgent
-Purpose: Build phased modernization and delivery plan from the approved specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-
-## Prompt Template
-
-# Plan Prompt
-
-Produce delivery plan aligned with spec and requirements.
-
-Include:
-- Phases
-- Milestones
-- Dependencies
-- Risks and mitigations
-- Team ownership suggestions
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRul
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
-## Source: output/requirements.md
-
-# requirements.md
-
-Status: DRY RUN
-
-Agent: RequirementsAgent
-Purpose: Produce structured requirements from business rules and legacy findings.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/program-analysis.md
-
-## Prompt Template
-
-# Requirements Prompt
-
-Convert business rules and analysis into clear functional and non-functional requirements.
-
-Produce:
-- Scope
-- Functional requirements with IDs
-- Non-functional requirements
-- Constraints and assumptions
-- Acceptance criteria
-
-
-## Input Previews
-
-##
-
+## Business Rules
+
+### Rule 1
+- **Rule Identifier**: BR-001
+- **Rule Statement**: An account is considered active if its status is "A".
+- **Trigger Conditions**: When the account status is checked.
+- **Inputs**: WS-ACCOUNT-STATUS
+- **Outputs**: "ACCOUNT IS ACTIVE" or "ACCOUNT NOT ACTIVE"
+- **Error Conditions**: None specified.
+
+### Rule 2
+- **Rule Identifier**: BR-002
+- **Rule Statement**: An account record must contain a valid account ID.
+- **Trigger Conditions**: When an account record is created or updated.
+- **Inputs**: ACCOUNT-ID
+- **Outputs**: Validity confirmation
+- **Error Conditions**: If ACCOUNT-ID is null or does not meet format requirements.
+
+### Rule 3
+- **Rule Identifier**: BR-003
+- **Rule Statement**: The program retrieves an account record from the DB2 datastore based on the input account ID.
+- **Trigger Conditions**: When an account retrieval request is made.
+- **Inputs**: ACCOUNT-ID
+- **Outputs**: Account record data
+- **Error Conditions**: If ACCOUNT-ID does not exist in the datastore.
+
+## Mapping Matrix
+
+### Legacy Artifact to Modern Component Mapping
+
+| Legacy Artifact         | Modern Component         |
+|-------------------------|--------------------------|
+| cobol/INQACC.cbl       | Account Retrieval Service |
+| copybooks/ACCDB2.cpy   | Account Data Model       |
+| copybooks/ACCOUNT.cpy   | Account Entity           |
+| copybooks/INQACCCZ.cpy | Account Query Handler    |
+
+### Requirement to Spec to Test Traceability
+
+| Requirement ID | Requirement Description                                      | Spec ID | Spec Description                          | Test ID | Test Description                         |
+|----------------|------------------------------------------------------------|---------|------------------------------------------|---------|------------------------------------------|
+| REQ-001        | An account must be retrievable by a valid account ID.     | SPEC-001| Define the account retrieval process.    | TEST-001| Verify account retrieval with valid ID.  |
+| REQ-002        | An account must be marked active based on its status.      | SPEC-002| Define the account status check process. | TEST-002| Verify account status check functionality.|
+
+## Code Review Checklist
+
+### Architectural Conformance
+- Ensure all components adhere to the defined architecture.
+- Verify that the mapping from legacy artifacts to modern components is correctly implemented.
+- Confirm that services are properly separated and business logic is encapsulated.
+
+### Naming and Readability
+- Check that all variable, function, and class names are descriptive and follow naming conventions.
+- Ensure code is formatted consistently and is easy to read.
+- Review comments for clarity and relevance.
+
+### Error Handling
+- Validate that error conditions specified in business rules are handled appropriately.
+- Ensure that meaningful error messages are provided for users and logs.
+- Check for proper use of exceptions and error codes.
+
+### Test Quality
+- Confirm that tests cover all business rules and edge cases.

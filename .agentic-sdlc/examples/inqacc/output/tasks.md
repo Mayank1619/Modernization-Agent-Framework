@@ -1,247 +1,52 @@
-# tasks.md
-
-Status: DRY RUN
-
-Agent: TaskAgent
-Purpose: Generate actionable engineering tasks aligned to the delivery plan.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/plan.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-
-## Prompt Template
-
 # Tasks Prompt
 
 Generate implementation tasks from plan.
 
-For each task include:
-- Task ID
-- Description
-- Dependencies
-- Estimate (S/M/L)
-- Definition of done
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.c
-
-## Source: output/plan.md
-
-# plan.md
-
-Status: DRY RUN
-
-Agent: PlanAgent
-Purpose: Build phased modernization and delivery plan from the approved specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-
-## Prompt Template
-
-# Plan Prompt
-
-Produce delivery plan aligned with spec and requirements.
-
-Include:
-- Phases
-- Milestones
-- Dependencies
-- Risks and mitigations
-- Team ownership suggestions
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRul
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
-## Source: output/requirements.md
-
-# requirements.md
-
-Status: DRY RUN
-
-Agent: RequirementsAgent
-Purpose: Produce structured requirements from business rules and legacy findings.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/program-analysis.md
-
-## Prompt Template
-
-# Requirements Prompt
-
-Convert business rules and analysis into clear functional and non-functional requirements.
-
-Produce:
-- Scope
-- Functional requirements with IDs
-- Non-functional requirements
-- Constraints and assumptions
-- Acceptance criteria
-
-
-## Input Previews
-
-##
-
-## Source: output/spec.md
-
-# spec.md
-
-Status: DRY RUN
-
-Agent: SpecAgent
-Purpose: Generate implementation-ready functional and technical specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-
-## Prompt Template
-
-# Spec Prompt
-
-Create implementation-ready specification from requirements.
-
-Include:
-- Domain model
-- API behavior
-- Validation rules
-- Error handling
-- Security and observability notes
-
-Spec must be the source of truth for implementation.
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-ru
-
+## Task 1
+- **Task ID**: TASK-001
+- **Description**: Implement the Account Inquiry Service based on the legacy COBOL component `cobol/INQACC01.cbl`.
+- **Dependencies**: None
+- **Estimate**: M
+- **Definition of done**: The service is implemented, tested, and integrated with the existing system.
+
+## Task 2
+- **Task ID**: TASK-002
+- **Description**: Create the Account Record Model based on the legacy copybook `copybooks/ACCTREC.cpy`.
+- **Dependencies**: None
+- **Estimate**: S
+- **Definition of done**: The model is created, validated against business rules, and documented.
+
+## Task 3
+- **Task ID**: TASK-003
+- **Description**: Develop unit tests for business rule BR-001 to ensure account status is checked correctly.
+- **Dependencies**: TASK-001
+- **Estimate**: S
+- **Definition of done**: Unit tests are written, passing, and cover all scenarios for BR-001.
+
+## Task 4
+- **Task ID**: TASK-004
+- **Description**: Develop unit tests for business rule BR-002 to validate account ID presence and format.
+- **Dependencies**: TASK-002
+- **Estimate**: S
+- **Definition of done**: Unit tests are written, passing, and cover all scenarios for BR-002.
+
+## Task 5
+- **Task ID**: TASK-005
+- **Description**: Conduct a code review for the Account Inquiry Service implementation.
+- **Dependencies**: TASK-001
+- **Estimate**: M
+- **Definition of done**: Code review is completed, and feedback is addressed.
+
+## Task 6
+- **Task ID**: TASK-006
+- **Description**: Conduct a QA review of the Account Record Model and its associated tests.
+- **Dependencies**: TASK-002, TASK-004
+- **Estimate**: M
+- **Definition of done**: QA review is completed, and all issues are resolved.
+
+## Task 7
+- **Task ID**: TASK-007
+- **Description**: Update the mapping matrix to reflect the new modern components and their legacy counterparts.
+- **Dependencies**: TASK-001, TASK-002
+- **Estimate**: S
+- **Definition of done**: Mapping matrix is updated and reviewed for accuracy.

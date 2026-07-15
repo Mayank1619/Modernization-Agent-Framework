@@ -34,6 +34,23 @@ Generated artifacts include:
 - Repository-level instructions in .github/copilot-instructions.md enforce architecture and behavior constraints.
 - copilot-build-prompt.md provides implementation-ready prompts tied to generated specs.
 
+## Use Actual AI Generation (Optional)
+
+The framework supports live AI generation through either:
+
+- Local Ollama (recommended for local/offline-friendly usage)
+- OpenAI-compatible API endpoints
+
+Example with local Ollama:
+
+python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider ollama --ai-model llama3.1 --ai-base-url http://localhost:11434
+
+Example with OpenAI-compatible endpoint:
+
+python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+
+If `--use-ai` is not set, the framework stays in deterministic local template mode.
+
 ## Run the Mainframe Modernization Pipeline
 
 For a complete runbook, see [HOW_TO_RUN.md](HOW_TO_RUN.md).

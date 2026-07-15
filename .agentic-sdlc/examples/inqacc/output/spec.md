@@ -1,158 +1,48 @@
-# spec.md
+# Spec Document
 
-Status: DRY RUN
+## Domain Model
 
-Agent: SpecAgent
-Purpose: Generate implementation-ready functional and technical specification.
+### Account Record Model
+- **Account ID**: String (required, must be valid format)
+- **Status**: String (values: "A", "I", etc.)
 
-## Pipeline Context
+## API Behavior
 
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
+### Endpoint: `/api/accounts/status`
+- **Method**: GET
+- **Request Parameters**:
+  - `accountId`: String (required)
+- **Response**:
+  - 200 OK: `{ "status": "ACCOUNT IS ACTIVE" | "ACCOUNT NOT ACTIVE" }`
+  - 400 Bad Request: `{ "error": "Invalid account ID" }`
 
-## Inputs Considered
+### Endpoint: `/api/accounts`
+- **Method**: POST
+- **Request Body**:
+  - `{ "accountId": "string" }`
+- **Response**:
+  - 201 Created: `{ "message": "Account created successfully" }`
+  - 400 Bad Request: `{ "error": "Invalid account ID" }`
 
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
+## Validation Rules
 
-## Prompt Template
+1. **Account Status Check**:
+   - Validate that the account status is "A" for active accounts.
+   - Triggered when checking account status.
 
-# Spec Prompt
+2. **Account ID Validation**:
+   - Ensure that the account ID is not null and meets format requirements.
+   - Triggered on account creation or update.
 
-Create implementation-ready specification from requirements.
+## Error Handling
 
-Include:
-- Domain model
-- API behavior
-- Validation rules
-- Error handling
-- Security and observability notes
+- Return meaningful error messages for invalid inputs.
+- Log errors for internal tracking and debugging.
+- Handle exceptions gracefully and provide user-friendly feedback.
 
-Spec must be the source of truth for implementation.
+## Security and Observability Notes
 
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.c
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
-## Source: output/requirements.md
-
-# requirements.md
-
-Status: DRY RUN
-
-Agent: RequirementsAgent
-Purpose: Produce structured requirements from business rules and legacy findings.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/program-analysis.md
-
-## Prompt Template
-
-# Requirements Prompt
-
-Convert business rules and analysis into clear functional and non-functional requirements.
-
-Produce:
-- Scope
-- Functional requirements with IDs
-- Non-functional requirements
-- Constraints and assumptions
-- Acceptance criteria
-
-
-## Input Previews
-
-##
-
+- Implement authentication and authorization for API endpoints.
+- Use HTTPS for secure data transmission.
+- Log all API requests and responses for observability.
+- Monitor for unusual patterns that may indicate security threats.

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List
 
+from llm.client import LlmClient
+
 
 @dataclass
 class AgentResult:
@@ -25,11 +27,13 @@ class BaseAgent:
         input_root: Path,
         output_root: Path,
         dry_run: bool = False,
+        llm_client: LlmClient | None = None,
     ) -> None:
         self.templates_dir = templates_dir
         self.input_root = input_root
         self.output_root = output_root
         self.dry_run = dry_run
+        self.llm_client = llm_client
 
     def run(self, context: Dict[str, str]) -> AgentResult:
         generated: List[Path] = []
@@ -98,6 +102,26 @@ class BaseAgent:
             preview_chunks.append(f"## Source: {name}\n\n{chunk}\n")
 
         previews = "\n".join(preview_chunks) if preview_chunks else "No input files found."
+
+        if not self.dry_run and self.llm_client is not None:
+            system_prompt = (
+                "You are an enterprise software modernization and Spec-Driven Development "
+                "assistant. Produce only the target artifact content, with no preamble. "
+                "Stay faithful to provided legacy inputs and do not invent fields."
+            )
+            user_prompt = (
+                f"Agent Name: {self.name}\n"
+                f"Purpose: {self.purpose}\n"
+                f"Target Output File: {output_name}\n"
+                f"Pipeline: {context.get('pipeline_name', 'unknown')}\n\n"
+                "Prompt Template:\n"
+                f"{prompt_text}\n\n"
+                "Input Files:\n"
+                f"{files_list}\n\n"
+                "Input Preview Snippets:\n"
+                f"{previews}\n"
+            )
+            return self.llm_client.generate(system_prompt=system_prompt, user_prompt=user_prompt)
 
         return (
             f"# {output_name}\n\n"

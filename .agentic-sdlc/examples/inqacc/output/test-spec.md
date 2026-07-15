@@ -1,244 +1,80 @@
-# test-spec.md
-
-Status: DRY RUN
-
-Agent: TestSpecAgent
-Purpose: Create complete test specifications for business rule and API verification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/mapping-matrix.md
-- output/plan.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-- output/tasks.md
-- output/traceability-matrix.md
-
-## Prompt Template
-
 # Test Spec Prompt
 
-Create test specification from business rules and spec.
-
-Include:
-- Unit tests
-- Integration tests
-- Contract tests
-- Negative and boundary scenarios
-- Rule-to-test mapping
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.c
-
-## Source: output/mapping-matrix.md
-
-# mapping-matrix.md
-
-Status: DRY RUN
-
-Agent: MappingMatrixAgent
-Purpose: Create mapping and traceability matrices from requirements through implementation.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/plan.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-- output/tasks.md
-
-## Prompt Template
-
-# Mapping Matrix Prompt
-
-Generate mapping and traceability matrices.
-
-Produce:
-- Legacy artifact to modern component mapping
-- Requirement to spec to test traceability
-- Rule-to-test
-
-## Source: output/plan.md
-
-# plan.md
-
-Status: DRY RUN
-
-Agent: PlanAgent
-Purpose: Build phased modernization and delivery plan from the approved specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-
-## Prompt Template
-
-# Plan Prompt
-
-Produce delivery plan aligned with spec and requirements.
-
-Include:
-- Phases
-- Milestones
-- Dependencies
-- Risks and mitigations
-- Team ownership suggestions
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRul
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
-## Source: output/requirements.md
-
-# requirements.md
-
-Status: DRY RUN
-
-Agent: RequirementsAgent
-Purpose: Produce structured requirements from business rules and legacy findings.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/program-analysis.md
-
-## Prompt Template
-
-# Requirements Prompt
-
-Convert business rules and analysis into clear functional and non-functional requirements.
-
-Produce:
-- Scope
-- Functional requirements with IDs
-- Non-functional requirements
-- Constraints and assumptions
-- Acceptance criteria
-
-
-## Input Previews
-
-##
-
+## Test Specification for Business Rules and API Verification
+
+### Unit Tests
+
+#### Test Case 1: Verify Active Account Status
+- **Test ID**: TC-001
+- **Rule Mapped**: BR-001
+- **Input**: WS-ACCOUNT-STATUS = "A"
+- **Expected Output**: "ACCOUNT IS ACTIVE"
+- **Description**: Test that an account with status "A" is recognized as active.
+
+#### Test Case 2: Verify Inactive Account Status
+- **Test ID**: TC-002
+- **Rule Mapped**: BR-001
+- **Input**: WS-ACCOUNT-STATUS = "I"
+- **Expected Output**: "ACCOUNT NOT ACTIVE"
+- **Description**: Test that an account with status "I" is recognized as not active.
+
+#### Test Case 3: Validate Account ID Presence
+- **Test ID**: TC-003
+- **Rule Mapped**: BR-002
+- **Input**: ACCOUNT-ID = null
+- **Expected Output**: Error indicating invalid account ID
+- **Description**: Test that an error is raised when the account ID is null.
+
+#### Test Case 4: Validate Account ID Format
+- **Test ID**: TC-004
+- **Rule Mapped**: BR-002
+- **Input**: ACCOUNT-ID = "123-ABC"
+- **Expected Output**: Validity confirmation
+- **Description**: Test that a correctly formatted account ID is validated successfully.
+
+### Integration Tests
+
+#### Test Case 5: Account Retrieval Service Integration
+- **Test ID**: TC-005
+- **Rule Mapped**: BR-003
+- **Input**: ACCOUNT-ID = "12345"
+- **Expected Output**: Account record retrieved from DB2
+- **Description**: Test the integration of the account retrieval service with the DB2 datastore.
+
+### Contract Tests
+
+#### Test Case 6: API Contract for Account Status Check
+- **Test ID**: TC-006
+- **Endpoint**: /api/account/status
+- **Input**: WS-ACCOUNT-STATUS = "A"
+- **Expected Output**: 200 OK with body {"status": "ACCOUNT IS ACTIVE"}
+- **Description**: Validate that the API contract for checking account status adheres to the expected response format.
+
+### Negative and Boundary Scenarios
+
+#### Test Case 7: Invalid Account ID Format
+- **Test ID**: TC-007
+- **Rule Mapped**: BR-002
+- **Input**: ACCOUNT-ID = "invalid-id"
+- **Expected Output**: Error indicating invalid account ID format
+- **Description**: Test that an error is raised for an incorrectly formatted account ID.
+
+#### Test Case 8: Empty Account ID
+- **Test ID**: TC-008
+- **Rule Mapped**: BR-002
+- **Input**: ACCOUNT-ID = ""
+- **Expected Output**: Error indicating account ID cannot be empty
+- **Description**: Test that an error is raised when the account ID is empty.
+
+### Rule-to-Test Mapping
+
+| Rule Identifier | Test ID | Test Description                             |
+|-----------------|---------|----------------------------------------------|
+| BR-001          | TC-001  | Verify Active Account Status                 |
+| BR-001          | TC-002  | Verify Inactive Account Status               |
+| BR-002          | TC-003  | Validate Account ID Presence                 |
+| BR-002          | TC-004  | Validate Account ID Format                   |
+| BR-003          | TC-005  | Account Retrieval Service Integration        |
+| -               | TC-006  | API Contract for Account Status Check       |
+| BR-002          | TC-007  | Invalid Account ID Format                    |
+| BR-002          | TC-008  | Empty Account ID                             |

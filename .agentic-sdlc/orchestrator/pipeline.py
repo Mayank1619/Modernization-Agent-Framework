@@ -19,6 +19,7 @@ from agents import (
     TestSpecAgent,
 )
 from agents.base_agent import AgentResult, BaseAgent
+from llm.client import LlmClient
 from orchestrator.config import PipelineConfig
 
 
@@ -30,12 +31,14 @@ class PipelineRunner:
         input_root: Path,
         output_root: Path,
         dry_run: bool = False,
+        llm_client: LlmClient | None = None,
     ) -> None:
         self.pipeline = pipeline
         self.templates_dir = templates_dir
         self.input_root = input_root
         self.output_root = output_root
         self.dry_run = dry_run
+        self.llm_client = llm_client
         self.registry: Dict[str, Type[BaseAgent]] = {
             "LegacyAnalysisAgent": LegacyAnalysisAgent,
             "BusinessRulesAgent": BusinessRulesAgent,
@@ -69,6 +72,7 @@ class PipelineRunner:
                 input_root=self.input_root,
                 output_root=self.output_root,
                 dry_run=self.dry_run,
+                llm_client=self.llm_client,
             )
             results.append(agent.run(context))
 

@@ -38,7 +38,24 @@ python run_pipeline.py --pipeline mainframe_modernization --input examples/inqac
 python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --dry-run
 ```
 
-## 6. Expected Output Artifacts
+## 6. Run with Actual AI (Optional)
+
+### Option A: Local Ollama
+
+1. Start Ollama locally and ensure model is available.
+2. Run:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider ollama --ai-model llama3.1 --ai-base-url http://localhost:11434
+```
+
+### Option B: OpenAI-Compatible Endpoint
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+```
+
+## 7. Expected Output Artifacts
 
 After the run, output folder contains:
 
@@ -57,20 +74,20 @@ After the run, output folder contains:
 - `code-review-checklist.md`
 - `modernization-report.md`
 
-## 7. Validate with Tests
+## 8. Validate with Tests
 
 ```powershell
 python -m pytest -q tests
 ```
 
-## 8. Use Outputs with Copilot
+## 9. Use Outputs with Copilot
 
 1. Open generated artifacts in VS Code.
 2. Start from `spec.md` as source of truth.
 3. Use `copilot-build-prompt.md` to drive incremental implementation.
 4. Validate coverage with `mapping-matrix.md`, `traceability-matrix.md`, and `test-spec.md`.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 - If `pytest` is missing:
 
@@ -80,3 +97,4 @@ python -m pip install pytest PyYAML
 
 - If pipeline file is not found, check pipeline name under `.agentic-sdlc/pipelines`.
 - If no outputs are generated, verify `--input` path has COBOL/copybook files.
+- If AI mode fails with connection errors, verify `--ai-base-url` and provider availability.

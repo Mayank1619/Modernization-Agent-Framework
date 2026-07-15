@@ -1,200 +1,44 @@
-# plan.md
-
-Status: DRY RUN
-
-Agent: PlanAgent
-Purpose: Build phased modernization and delivery plan from the approved specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-- output/spec.md
-
-## Prompt Template
-
-# Plan Prompt
-
-Produce delivery plan aligned with spec and requirements.
-
-Include:
-- Phases
-- Milestones
-- Dependencies
-- Risks and mitigations
-- Team ownership suggestions
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-rules.md
-
-Status: DRY RUN
-
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.c
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
-## Source: output/requirements.md
-
-# requirements.md
-
-Status: DRY RUN
-
-Agent: RequirementsAgent
-Purpose: Produce structured requirements from business rules and legacy findings.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/business-rules.md
-- output/program-analysis.md
-
-## Prompt Template
-
-# Requirements Prompt
-
-Convert business rules and analysis into clear functional and non-functional requirements.
-
-Produce:
-- Scope
-- Functional requirements with IDs
-- Non-functional requirements
-- Constraints and assumptions
-- Acceptance criteria
-
-
-## Input Previews
-
-##
-
-## Source: output/spec.md
-
-# spec.md
-
-Status: DRY RUN
-
-Agent: SpecAgent
-Purpose: Generate implementation-ready functional and technical specification.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- output/business-rules.md
-- output/program-analysis.md
-- output/requirements.md
-
-## Prompt Template
-
-# Spec Prompt
-
-Create implementation-ready specification from requirements.
-
-Include:
-- Domain model
-- API behavior
-- Validation rules
-- Error handling
-- Security and observability notes
-
-Spec must be the source of truth for implementation.
-
-
-## Input Previews
-
-## Source: output/business-rules.md
-
-# business-ru
-
+# Delivery Plan for Modernization
+
+## Phases
+
+### Phase 1: Assessment and Planning
+- **Milestone 1**: Complete analysis of existing system and gather requirements.
+- **Milestone 2**: Finalize modernization strategy and plan.
+- **Dependencies**: Completion of program analysis and requirements gathering.
+- **Risks and Mitigations**: Risk of incomplete requirements; mitigate by conducting thorough stakeholder interviews.
+
+### Phase 2: Design and Prototyping
+- **Milestone 1**: Develop architectural design for modern components.
+- **Milestone 2**: Create prototypes for key services.
+- **Dependencies**: Completion of Phase 1.
+- **Risks and Mitigations**: Risk of design not meeting business needs; mitigate by involving stakeholders in design reviews.
+
+### Phase 3: Implementation
+- **Milestone 1**: Implement Account Inquiry Service.
+- **Milestone 2**: Implement Account Record Model.
+- **Milestone 3**: Conduct code reviews and ensure adherence to guidelines.
+- **Dependencies**: Completion of design phase.
+- **Risks and Mitigations**: Risk of integration issues; mitigate by continuous integration and testing.
+
+### Phase 4: Testing and Validation
+- **Milestone 1**: Execute test cases based on business rules.
+- **Milestone 2**: Validate system against specifications.
+- **Dependencies**: Completion of implementation phase.
+- **Risks and Mitigations**: Risk of undetected defects; mitigate by thorough QA processes and automated testing.
+
+### Phase 5: Deployment and Monitoring
+- **Milestone 1**: Deploy modernized components to production.
+- **Milestone 2**: Monitor system performance and user feedback.
+- **Dependencies**: Successful completion of testing phase.
+- **Risks and Mitigations**: Risk of performance issues post-deployment; mitigate by implementing monitoring tools and rollback plans.
+
+## Team Ownership Suggestions
+- **Phase 1**: Business Analysts and Project Managers
+- **Phase 2**: Solution Architects and UX Designers
+- **Phase 3**: Development Team
+- **Phase 4**: QA Team
+- **Phase 5**: DevOps Team and Support Staff
+
+## Summary
+This delivery plan outlines a phased approach to modernizing the legacy system, ensuring alignment with business rules and specifications while addressing potential risks and dependencies. Each phase includes specific milestones and team ownership to facilitate accountability and progress tracking.

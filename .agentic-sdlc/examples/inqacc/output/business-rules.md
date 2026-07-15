@@ -1,106 +1,33 @@
-# business-rules.md
+# Business Rules
 
-Status: DRY RUN
+## Rule 1
+- **Rule Identifier**: BR-001
+- **Rule Statement**: An account is considered active if its status is "A".
+- **Trigger Conditions**: When the account status is checked.
+- **Inputs**: WS-ACCOUNT-STATUS
+- **Outputs**: "ACCOUNT IS ACTIVE" or "ACCOUNT NOT ACTIVE"
+- **Error Conditions**: None specified.
 
-Agent: BusinessRulesAgent
-Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
+## Rule 2
+- **Rule Identifier**: BR-002
+- **Rule Statement**: An account record must contain a valid account ID.
+- **Trigger Conditions**: When an account record is created or updated.
+- **Inputs**: ACCOUNT-ID
+- **Outputs**: Validity confirmation
+- **Error Conditions**: If ACCOUNT-ID is null or does not meet format requirements.
 
-## Pipeline Context
+## Rule 3
+- **Rule Identifier**: BR-003
+- **Rule Statement**: The program retrieves an account record from the DB2 datastore based on the incoming account number and account type.
+- **Trigger Conditions**: When an account number is provided for inquiry.
+- **Inputs**: ACCOUNT-NUMBER, ACCOUNT-TYPE
+- **Outputs**: ACCOUNT-RECORD
+- **Error Conditions**: If the account number does not exist or if there is a database access error.
 
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-- output/program-analysis.md
-
-## Prompt Template
-
-# Business Rules Prompt
-
-Extract business rules from legacy sources and analysis outputs.
-
-Produce:
-- Rule identifier
-- Rule statement
-- Trigger conditions
-- Inputs and outputs
-- Error conditions
-
-Avoid implementation details where possible.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01.cbl
-
-IDENTIFICATION DIVISION.
-       PROGRAM-ID. INQACC01.
-       ENVIRONMENT DIVISION.
-       DATA DIVISION.
-       WORKING-STORAGE SECTION.
-       01  WS-ACCOUNT-ID          PIC X(12).
-       01  WS-ACCOUNT-STATUS      PIC X(01).
-       PROCEDURE DIVISION.
-           DISPLAY "INQACC01 START".
-           MOVE "A12345678901" TO WS-ACCOUNT-ID.
-           MOVE "A" TO WS-ACCOUNT-STATUS.
-           IF WS-ACCOUNT-STATUS = "A"
-               DISPLAY "ACCOUNT IS ACTIVE"
-           ELSE
-               DISPLAY "ACCOUNT NOT ACTIVE"
-           END-IF.
-           GOBACK.
-
-## Source: copybooks/ACCTREC.cpy
-
-01  ACCOUNT-RECORD.
-           05  ACCOUNT-ID         PIC X(12).
-           05  CUSTOMER-ID        PIC X(10).
-           05  ACCOUNT-TYPE       PIC X(02).
-           05  ACCOUNT-STATUS     PIC X(01).
-           05  OPEN-DATE          PIC 9(8).
-
-## Source: output/program-analysis.md
-
-# program-analysis.md
-
-Status: DRY RUN
-
-Agent: LegacyAnalysisAgent
-Purpose: Analyze COBOL programs and copybooks to produce modernization-ready program analysis.
-
-## Pipeline Context
-
-- Pipeline: mainframe_modernization
-- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
-- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output
-
-## Inputs Considered
-
-- cobol/INQACC01.cbl
-- copybooks/ACCTREC.cpy
-
-## Prompt Template
-
-# Legacy Analysis Prompt
-
-Analyze the provided COBOL programs and copybooks.
-
-Produce:
-- Program inventory
-- Data structures and field map
-- Business process flow
-- Batch/online assumptions
-- Risks and unknowns
-
-Keep findings factual. Mark assumptions explicitly.
-
-
-## Input Previews
-
-## Source: cobol/INQACC01
-
+## Rule 4
+- **Rule Identifier**: BR-004
+- **Rule Statement**: The program must handle abend conditions gracefully.
+- **Trigger Conditions**: When an error occurs during account retrieval.
+- **Inputs**: Error codes from database operations
+- **Outputs**: Error handling response
+- **Error Conditions**: Any database access failure or invalid input parameters.
