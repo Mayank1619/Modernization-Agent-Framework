@@ -23,23 +23,39 @@ def load_local_dotenv(repo_root: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    default_pipeline = "mainframe_modernization"
+    default_input = ".agentic-sdlc/examples/inqacc/legacy"
+    default_output = ".agentic-sdlc/examples/inqacc/output"
+
     parser = argparse.ArgumentParser(
-        description="Run local Agentic SDLC pipelines for spec-driven development and modernization."
+        description=(
+            "Run local Agentic SDLC pipelines for spec-driven development and modernization. "
+            "Defaults are configured for the mainframe modernization example."
+        )
     )
     parser.add_argument(
         "--pipeline",
-        required=True,
-        help="Pipeline name (without extension), for example mainframe_modernization.",
+        default=default_pipeline,
+        help=(
+            "Pipeline name (without extension). "
+            f"Default: {default_pipeline}."
+        ),
     )
     parser.add_argument(
         "--input",
-        required=True,
-        help="Input folder containing legacy source and context documents.",
+        default=default_input,
+        help=(
+            "Input folder containing legacy source and context documents. "
+            f"Default: {default_input}."
+        ),
     )
     parser.add_argument(
         "--output",
-        required=True,
-        help="Output folder where generated artifacts are written.",
+        default=default_output,
+        help=(
+            "Output folder where generated artifacts are written. "
+            f"Default: {default_output}."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -71,6 +87,15 @@ def parse_args() -> argparse.Namespace:
         "--ai-api-key",
         default=None,
         help="API key for provider=openai. Defaults to env AGENTIC_AI_API_KEY.",
+    )
+    parser.epilog = (
+        "Examples:\n"
+        "  python run_pipeline.py\n"
+        "  python run_pipeline.py --dry-run\n"
+        "  python run_pipeline.py --use-ai --ai-provider ollama --ai-model llama3.1 "
+        "--ai-base-url http://localhost:11434\n"
+        "  python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini "
+        "--ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>"
     )
     return parser.parse_args()
 

@@ -1,5 +1,32 @@
 # How to Run
 
+## 0. Fastest Way (Recommended)
+
+Use the helper launcher from repository root:
+
+```powershell
+python run.py --mode openai --openai-api-key <YOUR_KEY>
+```
+
+Recommended OpenAI flow:
+
+```powershell
+python run.py --mode openai --openai-api-key <YOUR_KEY>
+```
+
+Or set your key once and run without passing it every time:
+
+```powershell
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
+```
+
+You can override folders if needed:
+
+```powershell
+python run.py --mode openai --openai-api-key <YOUR_KEY> --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output
+```
+
 ## 1. Prerequisites
 
 - Python 3.11+ installed
@@ -22,37 +49,40 @@ Put legacy files in:
 
 ## 4. Run Mainframe Modernization Pipeline
 
+OpenAI-first command:
+
 ```powershell
-python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output
+python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
 ```
 
-Alternative (also supported):
+Equivalent explicit command with pipeline/input/output paths:
 
 ```powershell
-python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
 ```
 
 ## 5. Run in Dry-Run Mode
 
 ```powershell
-python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --dry-run
+python run_pipeline.py --dry-run
 ```
 
 ## 6. Run with Actual AI (Optional)
 
-### Option A: Local Ollama
-
-1. Start Ollama locally and ensure model is available.
-2. Run:
+### OpenAI-Compatible Endpoint (Primary)
 
 ```powershell
-python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider ollama --ai-model llama3.1 --ai-base-url http://localhost:11434
+python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
 ```
 
-### Option B: OpenAI-Compatible Endpoint
+Optional: create a `.env` file from `.env.example` and keep API/config values there.
+
+### Optional: Local Ollama (Fallback)
+
+Use this only if you want local model execution instead of OpenAI:
 
 ```powershell
-python run_pipeline.py --pipeline mainframe_modernization --input examples/inqacc/legacy --output examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+python run_pipeline.py --use-ai --ai-provider ollama --ai-model llama3.1 --ai-base-url http://localhost:11434
 ```
 
 ## 7. Expected Output Artifacts
