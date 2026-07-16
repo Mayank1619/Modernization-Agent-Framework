@@ -5,13 +5,13 @@
 Use the helper launcher from repository root:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env once and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
 
 This command now installs required Python packages automatically on both Windows and macOS before running the pipeline.
 
-If you prefer passing the key inline instead of env:
+If you prefer passing the key inline instead of .env:
 
 ```powershell
 python run.py --mode openai --openai-api-key <YOUR_KEY>
@@ -20,7 +20,7 @@ python run.py --mode openai --openai-api-key <YOUR_KEY>
 Recommended OpenAI flow:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env once and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
 
@@ -61,9 +61,15 @@ Put legacy files in:
 OpenAI-first command:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env once and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
+
+Console output order:
+
+1. Input root and detected input files
+2. Agent execution plan
+3. Per-agent progress (`[START]` / `[DONE]`) with generated output files
 
 Equivalent explicit command with pipeline/input/output paths:
 
@@ -85,7 +91,7 @@ python run_pipeline.py --dry-run
 python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
 ```
 
-Optional: create a `.env` file from `.env.example` and keep API/config values there.
+The repository includes a committed `.env` with safe defaults. After pulling, add only your key in `AGENTIC_AI_API_KEY`.
 
 ### Optional: Local Ollama (Fallback)
 

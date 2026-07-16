@@ -70,6 +70,22 @@ def ensure_python_version() -> None:
         raise RuntimeError("Python 3.11+ is required.")
 
 
+def load_local_dotenv(repo_root: Path) -> None:
+    env_path = repo_root / ".env"
+    if not env_path.exists():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text or text.startswith("#") or "=" not in text:
+            continue
+        key, value = text.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def install_dependencies(args: argparse.Namespace) -> None:
     if args.no_install:
         return
@@ -139,8 +155,21 @@ def build_command(args: argparse.Namespace) -> list[str]:
     return cmd
 
 
+def redact_command(cmd: list[str]) -> str:
+    redacted = list(cmd)
+    secret_flags = {"--ai-api-key"}
+
+    for i, token in enumerate(redacted[:-1]):
+        if token in secret_flags:
+            redacted[i + 1] = "***REDACTED***"
+
+    return " ".join(redacted)
+
+
 def main() -> int:
     args = parse_args()
+    repo_root = Path(__file__).resolve().parent
+    load_local_dotenv(repo_root)
     ensure_python_version()
     install_dependencies(args)
     cmd = build_command(args)
@@ -150,7 +179,7 @@ def main() -> int:
     print(f"Input: {args.input}")
     print(f"Output: {args.output}")
     print("Running command:")
-    print(" ".join(cmd))
+    print(redact_command(cmd))
 
     completed = subprocess.run(cmd, check=False)
     return completed.returncode

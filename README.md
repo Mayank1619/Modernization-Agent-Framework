@@ -38,6 +38,8 @@ Each pipeline run generates a consistent delivery packet:
 
 ## Tech Stack
 
+Detailed architecture and stack notes are available in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ### Core Runtime
 
 - Python 3.11+
@@ -160,7 +162,7 @@ For full run details, see [HOW_TO_RUN.md](HOW_TO_RUN.md).
 Fastest option:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
 
@@ -169,7 +171,7 @@ python run.py --mode openai
 Recommended OpenAI commands:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
 
@@ -193,7 +195,7 @@ python -m pip install -r requirements.txt
 3. Run pipeline:
 
 ```powershell
-$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+# Edit .env and set AGENTIC_AI_API_KEY=<YOUR_KEY>
 python run.py --mode openai
 ```
 
