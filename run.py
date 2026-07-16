@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -15,6 +16,16 @@ def parse_args() -> argparse.Namespace:
         choices=["template", "dry-run", "ollama", "openai"],
         default="template",
         help="Run mode. Default: template.",
+    )
+    parser.add_argument(
+        "--no-install",
+        action="store_true",
+        help="Skip automatic dependency installation from requirements.txt.",
+    )
+    parser.add_argument(
+        "--pip-args",
+        default="",
+        help="Extra args passed to pip install, for example: --pip-args \"--upgrade\".",
     )
     parser.add_argument(
         "--input",
@@ -52,6 +63,30 @@ def parse_args() -> argparse.Namespace:
         help="Base URL to use for ollama mode.",
     )
     return parser.parse_args()
+
+
+def ensure_python_version() -> None:
+    if sys.version_info < (3, 11):
+        raise RuntimeError("Python 3.11+ is required.")
+
+
+def install_dependencies(args: argparse.Namespace) -> None:
+    if args.no_install:
+        return
+
+    requirements = Path("requirements.txt")
+    if not requirements.exists():
+        raise FileNotFoundError("requirements.txt not found in repository root.")
+
+    cmd = [sys.executable, "-m", "pip", "install", "-r", str(requirements)]
+    if args.pip_args:
+        cmd.extend(args.pip_args.split())
+
+    print("Installing dependencies:")
+    print(" ".join(cmd))
+    completed = subprocess.run(cmd, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError("Dependency installation failed.")
 
 
 def build_command(args: argparse.Namespace) -> list[str]:
@@ -106,6 +141,8 @@ def build_command(args: argparse.Namespace) -> list[str]:
 
 def main() -> int:
     args = parse_args()
+    ensure_python_version()
+    install_dependencies(args)
     cmd = build_command(args)
 
     print("== Agentic SDLC Runner ==")

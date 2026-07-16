@@ -5,16 +5,19 @@
 Use the helper launcher from repository root:
 
 ```powershell
-python run.py --mode openai --openai-api-key <YOUR_KEY>
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
 ```
 
-Recommended OpenAI flow:
+This command now installs required Python packages automatically on both Windows and macOS before running the pipeline.
+
+If you prefer passing the key inline instead of env:
 
 ```powershell
 python run.py --mode openai --openai-api-key <YOUR_KEY>
 ```
 
-Or set your key once and run without passing it every time:
+Recommended OpenAI flow:
 
 ```powershell
 $env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
@@ -34,10 +37,16 @@ python run.py --mode openai --openai-api-key <YOUR_KEY> --input .agentic-sdlc/ex
 
 ## 2. Install Dependencies
 
-Run from the repository root:
+Optional (manual install if you do not want auto-install in `run.py`):
 
 ```powershell
 python -m pip install -r requirements.txt
+```
+
+To skip auto-install in the runner:
+
+```powershell
+python run.py --no-install --mode openai --openai-api-key <YOUR_KEY>
 ```
 
 ## 3. Prepare Input Files
@@ -52,7 +61,8 @@ Put legacy files in:
 OpenAI-first command:
 
 ```powershell
-python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
 ```
 
 Equivalent explicit command with pipeline/input/output paths:

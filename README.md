@@ -160,14 +160,17 @@ For full run details, see [HOW_TO_RUN.md](HOW_TO_RUN.md).
 Fastest option:
 
 ```powershell
-python run.py --mode openai --openai-api-key <YOUR_KEY>
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
 ```
+
+`run.py` auto-installs required packages from `requirements.txt` before execution (Windows/macOS).
 
 Recommended OpenAI commands:
 
 ```powershell
-python run.py --mode openai --openai-api-key <YOUR_KEY>
-python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
 ```
 
 Optional fallback:
@@ -176,7 +179,7 @@ Optional fallback:
 python run.py --mode ollama
 ```
 
-1. Install dependencies:
+1. Optional manual install (runner does this automatically by default):
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -190,7 +193,8 @@ python -m pip install -r requirements.txt
 3. Run pipeline:
 
 ```powershell
-python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
+$env:AGENTIC_AI_API_KEY = "<YOUR_KEY>"
+python run.py --mode openai
 ```
 
 4. Optional dry run:
