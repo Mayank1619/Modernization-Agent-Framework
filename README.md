@@ -187,11 +187,17 @@ Then open `http://localhost:5173` to start runs, view agent execution events, an
 
 Classic theme:
 
-![Agent Visual Dashboard - Classic](docs/images/dashboard-classic.png)
+![Agent Visual Dashboard - Classic](docs/images/classichome1.png)
 
 Neon theme:
 
-![Agent Visual Dashboard - Neon](docs/images/dashboard-neon.png)
+![Agent Visual Dashboard - Neon](docs/images/NeonHome.png)
+
+Additional neon views:
+
+![Agent Visual Dashboard - Neon View 2](docs/images/NeonHome2.png)
+![Agent Visual Dashboard - Neon View 3](docs/images/neonhome3.png)
+![Agent Visual Dashboard - Neon View 4](docs/images/neonhome4.png)
 
 UI behavior summary:
 
