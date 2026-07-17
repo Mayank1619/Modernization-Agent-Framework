@@ -112,6 +112,38 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--demo-mode",
+        action="store_true",
+        help=(
+            "Run a non-AI dual-phase demo (primary, claude, merge) using dry-run "
+            "artifacts to visualize full execution flow without API keys."
+        ),
+    )
+    parser.add_argument(
+        "--parallel-dual-run",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable or disable parallel execution of primary and Claude dual runs.",
+    )
+    parser.add_argument(
+        "--optimize-tokens",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable compact context previews to reduce token usage and latency.",
+    )
+    parser.add_argument(
+        "--token-max-sources",
+        type=int,
+        default=None,
+        help="Max source files included in prompt context previews.",
+    )
+    parser.add_argument(
+        "--token-preview-chars",
+        type=int,
+        default=None,
+        help="Max characters per source preview in prompt context.",
+    )
+    parser.add_argument(
         "--claude-model",
         default=None,
         help="Claude model for secondary run. Defaults to env AGENTIC_CLAUDE_MODEL.",
@@ -173,7 +205,9 @@ def resolve_system_intent_path(args, repo_root: Path, framework_root: Path) -> s
 
 
 def apply_ai_env_overrides(args) -> None:
-    if args.use_ai:
+    if args.demo_mode:
+        os.environ["AGENTIC_AI_ENABLED"] = "false"
+    elif args.use_ai:
         os.environ["AGENTIC_AI_ENABLED"] = "true"
     if args.ai_provider:
         os.environ["AGENTIC_AI_PROVIDER"] = args.ai_provider
@@ -185,90 +219,33 @@ def apply_ai_env_overrides(args) -> None:
         os.environ["AGENTIC_AI_API_KEY"] = args.ai_api_key
 
 
-def main() -> int:
-    args = parse_args()
-    repo_root = Path(__file__).resolve().parent
-    framework_root = repo_root / ".agentic-sdlc"
-    sys.path.insert(0, str(framework_root))
-    load_local_dotenv(repo_root)
+def apply_token_optimization_overrides(args) -> None:
+    if not args.optimize_tokens:
+        return
 
-    from orchestrator.config import load_pipeline_config
-    from orchestrator.dual_run import run_pipeline_dual_model
+    if args.token_max_sources is not None:
+        os.environ["AGENTIC_CONTEXT_MAX_SOURCES"] = str(args.token_max_sources)
+    else:
+        os.environ.setdefault("AGENTIC_CONTEXT_MAX_SOURCES", "12")
+
+    if args.token_preview_chars is not None:
+        os.environ["AGENTIC_CONTEXT_PREVIEW_CHARS"] = str(args.token_preview_chars)
+    else:
+        os.environ.setdefault("AGENTIC_CONTEXT_PREVIEW_CHARS", "1400")
+
+
+def _run_single_model(
+    *,
+    args,
+    pipeline,
+    templates_dir: Path,
+    input_root: Path,
+    output_root: Path,
+    llm_settings,
+    llm_client,
+    system_intent_path: str,
+) -> int:
     from orchestrator.pipeline import PipelineRunner
-    from llm.factory import LlmSettings, build_llm_client, load_llm_settings
-
-    pipeline_path = framework_root / "pipelines" / f"{args.pipeline}.yaml"
-    templates_dir = framework_root / "templates"
-
-    requested_input = (repo_root / args.input).resolve()
-    requested_output = (repo_root / args.output).resolve()
-
-    input_root = requested_input
-    if not input_root.exists():
-        input_root = (framework_root / args.input).resolve()
-    output_root = requested_output
-    if not output_root.parent.exists():
-        output_root = (framework_root / args.output).resolve()
-
-    system_intent_path = resolve_system_intent_path(args, repo_root, framework_root)
-
-    pipeline = load_pipeline_config(pipeline_path)
-
-    apply_ai_env_overrides(args)
-
-    llm_settings = load_llm_settings()
-    llm_client = build_llm_client(llm_settings)
-
-    if args.compare_with_claude:
-        if args.dry_run:
-            raise ValueError("--compare-with-claude cannot be combined with --dry-run")
-        if not llm_settings.enabled or llm_client is None:
-            raise ValueError(
-                "Dual-model comparison requires primary AI generation. "
-                "Use --use-ai with a primary provider."
-            )
-
-        claude_model, claude_base_url, claude_api_key = build_claude_settings(args)
-        claude_client = build_llm_client(
-            LlmSettings(
-                enabled=True,
-                provider="claude",
-                model=claude_model,
-                base_url=claude_base_url,
-                api_key=claude_api_key,
-                timeout_seconds=llm_settings.timeout_seconds,
-            )
-        )
-        if claude_client is None:
-            raise ValueError("Failed to initialize Claude client for dual-model comparison")
-
-        comparisons = run_pipeline_dual_model(
-            pipeline=pipeline,
-            templates_dir=templates_dir,
-            input_root=input_root,
-            output_root=output_root,
-            primary_client=llm_client,
-            secondary_client=claude_client,
-            extra_context={"system_intent_path": system_intent_path},
-        )
-
-        print(f"Pipeline: {pipeline.name}")
-        print(f"Description: {pipeline.description}")
-        print("Dual-model comparison: enabled")
-        print(
-            "Primary provider/model: "
-            f"{llm_settings.provider}/{llm_settings.model} @ {llm_settings.base_url}"
-        )
-        print(f"Secondary provider/model: claude/{claude_model} @ {claude_base_url}")
-        print(f"Merged output folder: {output_root}")
-        print(
-            "Additional artifacts: "
-            f"{output_root.parent / (output_root.name + '_primary')}, "
-            f"{output_root.parent / (output_root.name + '_claude')}, "
-            f"{output_root / 'dual-model-analysis.md'}"
-        )
-        print(f"Artifacts compared: {len(comparisons)}")
-        return 0 if comparisons else 1
 
     runner = PipelineRunner(
         pipeline=pipeline,
@@ -295,6 +272,158 @@ def main() -> int:
         print(f"- {result.agent_name}: {outputs}")
 
     return 0 if results else 1
+
+
+def _prepare_dual_clients(args, llm_settings, llm_client):
+    from llm.factory import LlmSettings, build_llm_client
+
+    if not args.demo_mode and (not llm_settings.enabled or llm_client is None):
+        raise ValueError(
+            "Dual-model comparison requires primary AI generation. "
+            "Use --use-ai with a primary provider."
+        )
+
+    claude_model = "demo-claude"
+    claude_base_url = "disabled"
+    claude_client = None
+
+    if not args.demo_mode:
+        claude_model, claude_base_url, claude_api_key = build_claude_settings(args)
+        claude_client = build_llm_client(
+            LlmSettings(
+                enabled=True,
+                provider="claude",
+                model=claude_model,
+                base_url=claude_base_url,
+                api_key=claude_api_key,
+                timeout_seconds=llm_settings.timeout_seconds,
+            )
+        )
+        if claude_client is None:
+            raise ValueError("Failed to initialize Claude client for dual-model comparison")
+
+    return claude_model, claude_base_url, claude_client
+
+
+def _run_dual_model(
+    *,
+    args,
+    pipeline,
+    templates_dir: Path,
+    input_root: Path,
+    output_root: Path,
+    llm_settings,
+    llm_client,
+    system_intent_path: str,
+) -> int:
+    from orchestrator.dual_run import run_pipeline_dual_model
+
+    if args.dry_run and not args.demo_mode:
+        raise ValueError("--compare-with-claude cannot be combined with --dry-run")
+    if args.demo_mode and args.use_ai:
+        print("[INFO] Demo mode enabled. Ignoring --use-ai and running dry-run dual phases.")
+
+    claude_model, claude_base_url, claude_client = _prepare_dual_clients(
+        args,
+        llm_settings,
+        llm_client,
+    )
+
+    comparisons = run_pipeline_dual_model(
+        pipeline=pipeline,
+        templates_dir=templates_dir,
+        input_root=input_root,
+        output_root=output_root,
+        primary_client=None if args.demo_mode else llm_client,
+        secondary_client=claude_client,
+        extra_context={"system_intent_path": system_intent_path},
+        parallel=args.parallel_dual_run,
+        primary_dry_run=args.demo_mode,
+        secondary_dry_run=args.demo_mode,
+        use_llm_merge=not args.demo_mode,
+    )
+
+    print(f"Pipeline: {pipeline.name}")
+    print(f"Description: {pipeline.description}")
+    print(f"Dual-model comparison: {'demo mode' if args.demo_mode else 'enabled'}")
+    print(f"Dual run parallel: {args.parallel_dual_run}")
+    if args.demo_mode:
+        print("Primary provider/model: demo/non-ai")
+        print("Secondary provider/model: demo/non-ai")
+    else:
+        print(
+            "Primary provider/model: "
+            f"{llm_settings.provider}/{llm_settings.model} @ {llm_settings.base_url}"
+        )
+        print(f"Secondary provider/model: claude/{claude_model} @ {claude_base_url}")
+    print(f"Merged output folder: {output_root}")
+    print(
+        "Additional artifacts: "
+        f"{output_root.parent / (output_root.name + '_primary')}, "
+        f"{output_root.parent / (output_root.name + '_claude')}, "
+        f"{output_root / 'dual-model-analysis.md'}"
+    )
+    print(f"Artifacts compared: {len(comparisons)}")
+    return 0 if comparisons else 1
+
+
+def main() -> int:
+    args = parse_args()
+    repo_root = Path(__file__).resolve().parent
+    framework_root = repo_root / ".agentic-sdlc"
+    sys.path.insert(0, str(framework_root))
+    load_local_dotenv(repo_root)
+
+    from orchestrator.config import load_pipeline_config
+    from llm.factory import build_llm_client, load_llm_settings
+
+    pipeline_path = framework_root / "pipelines" / f"{args.pipeline}.yaml"
+    templates_dir = framework_root / "templates"
+
+    requested_input = (repo_root / args.input).resolve()
+    requested_output = (repo_root / args.output).resolve()
+
+    input_root = requested_input
+    if not input_root.exists():
+        input_root = (framework_root / args.input).resolve()
+    output_root = requested_output
+    if not output_root.parent.exists():
+        output_root = (framework_root / args.output).resolve()
+
+    system_intent_path = resolve_system_intent_path(args, repo_root, framework_root)
+
+    pipeline = load_pipeline_config(pipeline_path)
+
+    apply_ai_env_overrides(args)
+    apply_token_optimization_overrides(args)
+
+    llm_settings = load_llm_settings()
+    llm_client = build_llm_client(llm_settings)
+
+    compare_enabled = args.compare_with_claude or args.demo_mode
+
+    if compare_enabled:
+        return _run_dual_model(
+            args=args,
+            pipeline=pipeline,
+            templates_dir=templates_dir,
+            input_root=input_root,
+            output_root=output_root,
+            llm_settings=llm_settings,
+            llm_client=llm_client,
+            system_intent_path=system_intent_path,
+        )
+
+    return _run_single_model(
+        args=args,
+        pipeline=pipeline,
+        templates_dir=templates_dir,
+        input_root=input_root,
+        output_root=output_root,
+        llm_settings=llm_settings,
+        llm_client=llm_client,
+        system_intent_path=system_intent_path,
+    )
 
 
 if __name__ == "__main__":

@@ -27,18 +27,51 @@ In dual-model mode it also produces:
 ## Core Capabilities
 
 - Sequential multi-agent artifact generation
-- System intent capture before requirements/spec generation
+- System intent capture before requirements and spec generation
 - Optional AI providers: Ollama, OpenAI-compatible, Claude
 - Dual-model comparison and merge (primary + Claude)
+- Visual run orchestration API with live event stream
+- Demo mode that simulates full primary/claude/merge flow without AI keys
+- Parallel dual-model execution for faster compare runs
+- Prompt context token optimization controls for faster, lower-cost generation
+- Live elapsed timer in dashboard for run duration tracking
+- Dashboard theme switcher (Classic and Neon)
 - Deterministic dry-run mode
+
+## New Execution Flow
+
+Single-model run:
+
+1. Pipeline runs all enabled agents in order.
+2. Each agent emits start/completion events.
+3. Artifacts are written to the output folder.
+
+Dual-model run (compare mode):
+
+1. Primary model run writes to `output_primary`.
+2. Claude run writes to `output_claude`.
+3. Merge stage reconciles artifacts into final `output`.
+4. `dual-model-analysis.md` captures differences and merge rationale.
+
+Demo dual-model run:
+
+1. Primary phase runs in dry-run mode.
+2. Claude phase runs in dry-run mode.
+3. Merge phase selects and combines outputs without LLM merge.
+4. Full phase/event flow is still emitted for UI visualization.
 
 ## Quick Start
 
-Recommended runner:
+Non-AI deterministic run:
 
 ```powershell
-# Keep .env committed without secrets; set keys in .env.local
-python run.py --mode openai
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --dry-run
+```
+
+AI run with OpenAI-compatible provider:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com
 ```
 
 ## Environment Configuration (Safe for Git)
@@ -62,7 +95,13 @@ AGENTIC_AI_API_KEY=<YOUR_OPENAI_KEY>
 AGENTIC_CLAUDE_API_KEY=<YOUR_CLAUDE_KEY>
 ```
 
-Manual pipeline command:
+Optional system intent input:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --system-intent .agentic-sdlc/examples/inqacc/legacy/system-intent.md --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com
+```
+
+Manual pipeline command with explicit key override:
 
 ```powershell
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>
@@ -78,6 +117,24 @@ Requirements:
 
 - Primary AI key is required for OpenAI-compatible mode.
 - Claude key is required when `--compare-with-claude` is enabled.
+- Missing key validation fails fast with a clear error message.
+
+Parallel control:
+
+- `--parallel-dual-run` (default on) runs primary and Claude phases concurrently.
+- `--no-parallel-dual-run` runs them sequentially.
+
+Token optimization controls:
+
+- `--optimize-tokens` (default on)
+- `--token-max-sources <n>`
+- `--token-preview-chars <n>`
+
+Demo mode command:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --demo-mode --parallel-dual-run
+```
 
 Dual-model outputs:
 
@@ -109,6 +166,22 @@ npm run dev
 ```
 
 Then open `http://localhost:5173` to start runs, view agent execution events, and inspect generated outputs.
+
+UI behavior summary:
+
+- `Use AI = off`: runs in deterministic mode with no API keys.
+- `Use AI = on`: requires `AGENTIC_AI_API_KEY`.
+- `Compare with Claude = on`: also requires `AGENTIC_CLAUDE_API_KEY`.
+- `Demo Mode = on`: forces non-AI dual-phase run with merge for realistic live demo flow.
+- `Run OpenAI + Claude in Parallel`: toggles concurrent dual execution.
+- `Optimize Token Usage`: enables compact prompt context controls.
+- Header shows elapsed run timer while execution is active.
+- Dual mode shows primary phase, secondary phase, and merge events.
+- Theme toggle supports Classic and Neon visual styles.
+
+## Legacy Runner Note
+
+`run.py` remains available as a convenience launcher for template, dry-run, ollama, and openai modes.
 
 ## Documentation
 

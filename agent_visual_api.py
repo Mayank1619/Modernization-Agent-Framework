@@ -64,6 +64,11 @@ class RunRecord:
     output_path: str
     use_ai: bool
     compare_with_claude: bool
+    demo_mode: bool
+    parallel_dual_run: bool
+    optimize_tokens: bool
+    token_max_sources: int | None
+    token_preview_chars: int | None
     started_at: str
     ended_at: str | None = None
     error: str | None = None
@@ -118,6 +123,11 @@ class StartRunRequest(BaseModel):
     system_intent: str | None = ".agentic-sdlc/examples/inqacc/legacy/system-intent.md"
     use_ai: bool = True
     compare_with_claude: bool = False
+    demo_mode: bool = False
+    parallel_dual_run: bool = True
+    optimize_tokens: bool = True
+    token_max_sources: int | None = None
+    token_preview_chars: int | None = None
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_base_url: str | None = None
@@ -147,7 +157,8 @@ def _resolve_repo_path(path_text: str) -> Path:
 
 
 def _apply_ai_env_overrides(request_data: StartRunRequest) -> None:
-    os.environ["AGENTIC_AI_ENABLED"] = "true" if request_data.use_ai else "false"
+    effective_use_ai = request_data.use_ai and not request_data.demo_mode
+    os.environ["AGENTIC_AI_ENABLED"] = "true" if effective_use_ai else "false"
     if request_data.ai_provider:
         os.environ["AGENTIC_AI_PROVIDER"] = request_data.ai_provider
     if request_data.ai_model:
@@ -156,6 +167,23 @@ def _apply_ai_env_overrides(request_data: StartRunRequest) -> None:
         os.environ["AGENTIC_AI_BASE_URL"] = request_data.ai_base_url
     if request_data.ai_api_key:
         os.environ["AGENTIC_AI_API_KEY"] = request_data.ai_api_key
+
+
+def _apply_token_optimization_overrides(request_data: StartRunRequest) -> None:
+    if not request_data.optimize_tokens:
+        return
+
+    if request_data.token_max_sources is not None:
+        os.environ["AGENTIC_CONTEXT_MAX_SOURCES"] = str(request_data.token_max_sources)
+    else:
+        os.environ.setdefault("AGENTIC_CONTEXT_MAX_SOURCES", "12")
+
+    if request_data.token_preview_chars is not None:
+        os.environ["AGENTIC_CONTEXT_PREVIEW_CHARS"] = str(
+            request_data.token_preview_chars
+        )
+    else:
+        os.environ.setdefault("AGENTIC_CONTEXT_PREVIEW_CHARS", "1400")
 
 
 def _resolve_system_intent(system_intent_path: str | None) -> str:
@@ -237,31 +265,46 @@ def _run_dual_model_pipeline(
     system_intent_path: str,
     event_sink,
 ) -> None:
-    if llm_client is None:
+    if not request_data.demo_mode and llm_client is None:
         raise ValueError("Primary AI client is required for dual-model mode")
 
-    secondary_client = _build_claude_client(
-        request_data=request_data,
-        timeout_seconds=llm_settings.timeout_seconds,
-    )
+    secondary_client = None
+    if not request_data.demo_mode:
+        secondary_client = _build_claude_client(
+            request_data=request_data,
+            timeout_seconds=llm_settings.timeout_seconds,
+        )
 
     comparisons = run_pipeline_dual_model(
         pipeline=pipeline,
         templates_dir=templates_dir,
         input_root=input_root,
         output_root=output_root,
-        primary_client=llm_client,
+        primary_client=None if request_data.demo_mode else llm_client,
         secondary_client=secondary_client,
         extra_context={"system_intent_path": system_intent_path},
         event_sink=event_sink,
+        parallel=request_data.parallel_dual_run,
+        primary_dry_run=request_data.demo_mode,
+        secondary_dry_run=request_data.demo_mode,
+        use_llm_merge=not request_data.demo_mode,
     )
     store.append_event(
         run_id,
         {
             "event": "dual_model_summary",
             "artifacts_compared": len(comparisons),
+            "demo_mode": request_data.demo_mode,
         },
     )
+
+
+def _serialize_record(record: RunRecord) -> Dict[str, object]:
+    payload = asdict(record)
+    start = datetime.fromisoformat(record.started_at)
+    end = datetime.fromisoformat(record.ended_at) if record.ended_at else datetime.now(timezone.utc)
+    payload["elapsed_seconds"] = max(0.0, (end - start).total_seconds())
+    return payload
 
 
 def _run_pipeline_task(run_id: str, request_data: StartRunRequest) -> None:
@@ -269,6 +312,7 @@ def _run_pipeline_task(run_id: str, request_data: StartRunRequest) -> None:
         load_local_dotenv(REPO_ROOT)
 
         _apply_ai_env_overrides(request_data)
+        _apply_token_optimization_overrides(request_data)
 
         llm_settings = load_llm_settings()
         llm_client = build_llm_client(llm_settings)
@@ -283,7 +327,9 @@ def _run_pipeline_task(run_id: str, request_data: StartRunRequest) -> None:
 
         event_sink = lambda event: store.append_event(run_id, event)
 
-        if request_data.compare_with_claude:
+        compare_enabled = request_data.compare_with_claude or request_data.demo_mode
+
+        if compare_enabled:
             _run_dual_model_pipeline(
                 run_id=run_id,
                 pipeline=pipeline,
@@ -328,20 +374,26 @@ def health() -> Dict[str, str]:
 @app.get("/api/runs")
 def list_runs() -> List[Dict[str, object]]:
     records = sorted(store.list(), key=lambda rec: rec.started_at, reverse=True)
-    return [asdict(rec) for rec in records]
+    return [_serialize_record(rec) for rec in records]
 
 
 @app.post("/api/runs/start")
 def start_run(request_data: StartRunRequest) -> Dict[str, str]:
     run_id = uuid.uuid4().hex
+    effective_compare_with_claude = request_data.compare_with_claude or request_data.demo_mode
     record = RunRecord(
         run_id=run_id,
         status="running",
         pipeline=request_data.pipeline,
         input_path=request_data.input_path,
         output_path=request_data.output_path,
-        use_ai=request_data.use_ai,
-        compare_with_claude=request_data.compare_with_claude,
+        use_ai=request_data.use_ai and not request_data.demo_mode,
+        compare_with_claude=effective_compare_with_claude,
+        demo_mode=request_data.demo_mode,
+        parallel_dual_run=request_data.parallel_dual_run,
+        optimize_tokens=request_data.optimize_tokens,
+        token_max_sources=request_data.token_max_sources,
+        token_preview_chars=request_data.token_preview_chars,
         started_at=_now_iso(),
     )
     store.create(record)
@@ -353,7 +405,7 @@ def start_run(request_data: StartRunRequest) -> Dict[str, str]:
 @app.get("/api/runs/{run_id}", responses={404: {"description": RUN_NOT_FOUND}})
 def get_run(run_id: str) -> Dict[str, object]:
     try:
-        return asdict(store.get(run_id))
+        return _serialize_record(store.get(run_id))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=RUN_NOT_FOUND) from exc
 

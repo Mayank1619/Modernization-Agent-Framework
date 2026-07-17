@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This framework converts legacy mainframe inputs (COBOL and copybooks) into a structured, spec-driven modernization artifact set.
+This framework converts legacy mainframe inputs (COBOL and copybooks) into a spec-driven modernization artifact set with traceability and review outputs.
 
 Goals:
 
-- Preserve business logic during modernization
-- Build clear traceability from legacy assets to modern deliverables
-- Provide an AI-assisted workflow with deterministic fallback
-- Produce implementation-ready outputs for developers, QA, and reviewers
+- Preserve approved legacy behavior during modernization.
+- Produce implementation-ready artifacts for engineering and QA.
+- Support deterministic generation and optional AI-assisted generation.
+- Support dual-model verification and merge for higher confidence.
 
 ## High-Level Architecture
 
@@ -20,17 +20,18 @@ flowchart TD
     C --> D[Agent Registry]
     D --> E1[LegacyAnalysisAgent]
     D --> E2[BusinessRulesAgent]
-    D --> E3[RequirementsAgent]
-    D --> E4[SpecAgent]
-    D --> E5[PlanAgent]
-    D --> E6[TaskAgent]
-    D --> E7[MappingMatrixAgent]
-    D --> E8[TestSpecAgent]
-    D --> E9[OpenApiAgent]
-    D --> E10[CopilotPromptAgent]
-    D --> E11[QAReviewAgent]
-    D --> E12[CodeReviewAgent]
-    D --> E13[ReportAgent]
+    D --> E3[SystemIntentAgent]
+    D --> E4[RequirementsAgent]
+    D --> E5[SpecAgent]
+    D --> E6[PlanAgent]
+    D --> E7[TaskAgent]
+    D --> E8[MappingMatrixAgent]
+    D --> E9[TestSpecAgent]
+    D --> E10[OpenApiAgent]
+    D --> E11[CopilotPromptAgent]
+    D --> E12[QAReviewAgent]
+    D --> E13[CodeReviewAgent]
+    D --> E14[ReportAgent]
     E1 --> F[Output Artifacts Folder]
     E2 --> F
     E3 --> F
@@ -44,9 +45,17 @@ flowchart TD
     E11 --> F
     E12 --> F
     E13 --> F
+    E14 --> F
     C --> G[LLM Factory]
     G --> H[OpenAI-Compatible Client]
     G --> I[Ollama Client]
+    G --> J[Claude Client]
+    K[DualRun Orchestrator\n.orchestrator/dual_run.py] --> C
+    K --> L[output_primary]
+    K --> M[output_claude]
+    K --> N[merged output + dual-model-analysis.md]
+    O[FastAPI Visual API\nagent_visual_api.py] --> K
+    P[React Dashboard\nagent-visual-ui] --> O
 ```
 
 ## Core Components
@@ -54,87 +63,118 @@ flowchart TD
 ### 1. Entry Layer
 
 - run.py
-  - User-friendly cross-platform launcher
-  - Handles dependency install from requirements.txt
-  - Builds and runs the pipeline command
+  - Convenience launcher for template, dry-run, ollama, and openai modes.
+  - Optional dependency installation from requirements.txt.
 - run_pipeline.py
-  - Main CLI entrypoint for pipeline execution
-  - Loads .env values (if present)
-  - Resolves pipeline, input, and output paths
-  - Wires AI settings into runtime environment variables
+  - Main CLI entrypoint for pipeline execution.
+  - Loads runtime env values.
+  - Resolves pipeline/input/output paths.
+  - Supports dual-model compare with Claude.
 
 ### 2. Orchestration Layer
 
 - .agentic-sdlc/orchestrator/config.py
-  - Loads YAML pipeline definitions
-  - Validates required fields (pipeline name, non-empty agent list)
+  - Loads and validates YAML pipeline definitions.
 - .agentic-sdlc/orchestrator/pipeline.py
-  - Contains PipelineRunner
-  - Maintains the agent registry
-  - Executes enabled agents sequentially
+  - Executes enabled agents sequentially.
+  - Emits run and agent lifecycle events.
+- .agentic-sdlc/orchestrator/dual_run.py
+  - Runs primary and Claude pipelines.
+  - Supports parallel dual execution.
+  - Supports non-AI demo-mode dual phases.
+  - Compares artifacts and merges final output.
+  - Produces dual-model-analysis.md.
 
 ### 3. Agent Layer
 
 - .agentic-sdlc/agents/base_agent.py
-  - Shared agent behavior:
-    - load prompt template
-    - collect input files
-    - include prior generated artifacts as context
-    - generate content (LLM mode or deterministic mode)
-    - validate non-empty output files
+  - Shared logic for template loading, context aggregation, generation, and output validation.
 - .agentic-sdlc/agents/*.py
-  - Concrete domain agents (analysis, requirements, spec, plan, tasks, mapping, tests, API, prompts, QA, code review, final report)
+  - Domain agents for analysis, intent, requirements, spec, planning, tests, contract, reviews, and report generation.
 
 ### 4. LLM Integration Layer
 
 - .agentic-sdlc/llm/factory.py
-  - Loads AGENTIC_AI_* configuration
-  - Builds provider client (OpenAI-compatible or Ollama)
+  - Loads AGENTIC_AI_* settings.
+  - Enforces required API key validation for cloud providers.
 - .agentic-sdlc/llm/http_clients.py
   - OpenAiCompatibleClient: POST /v1/chat/completions
   - OllamaClient: POST /api/generate
+  - ClaudeClient: POST /v1/messages
+
+### 5. Visual Operations Layer
+
+- agent_visual_api.py (FastAPI)
+  - Starts runs, tracks run state, stores event stream, serves artifact content.
+  - Exposes elapsed_seconds timer data per run.
+  - Accepts demo-mode, parallel-run, and token optimization controls.
+  - Exposes endpoints for health, runs, run details, artifacts, and artifact content.
+- agent-visual-ui (React + Vite)
+  - Starts pipeline runs from UI.
+  - Displays live run events and dual-model phase progression.
+  - Displays elapsed run timer.
+  - Supports Classic/Neon theme toggle.
+  - Displays generated artifacts in-browser.
 
 ## Runtime Flow
 
-1. User runs run.py (recommended) or run_pipeline.py.
-2. Pipeline YAML is loaded (mainframe_modernization).
-3. PipelineRunner iterates through each configured agent.
-4. Each agent reads legacy input and previous outputs.
-5. Agent generates artifact content:
-   - deterministic template mode, or
-   - live AI mode (OpenAI-compatible / Ollama)
-6. Artifacts are written to output directory.
+Single-model flow:
+
+1. User starts run with CLI or API.
+2. PipelineRunner executes agents in configured order.
+3. Event sink records run_started, agent_started, agent_completed, run_completed.
+4. Artifacts are written to output.
+
+Dual-model flow:
+
+1. Primary run executes into output_primary.
+2. Claude run executes into output_claude.
+3. Merge stage reconciles artifacts into output.
+4. dual-model-analysis.md summarizes differences and merge decisions.
+
+Demo-mode dual flow:
+
+1. Primary phase runs dry-run output generation.
+2. Claude phase runs dry-run output generation.
+3. Merge phase combines outputs with heuristic selection.
+4. Full phase telemetry remains available for visualization.
 
 ## Tech Stack
 
 ### Language and Runtime
 
 - Python 3.11+
+- Node.js 18+ (visual dashboard)
 
-### External Packages (from requirements.txt)
+### External Packages (requirements.txt)
 
 - PyYAML>=6.0
-  - Used for loading pipeline YAML configuration
 - pytest>=8.0
-  - Used for test execution and validation
+- fastapi>=0.110
+- uvicorn[standard]>=0.29
 
-### Standard Library Modules Used Heavily
+### Visual UI Stack
 
-- argparse (CLI argument parsing)
-- pathlib (cross-platform paths)
-- dataclasses (typed config/result models)
-- typing (type hints)
-- os, sys (environment and runtime setup)
-- urllib.request (HTTP calls to AI providers)
-- json (AI request/response serialization)
-- subprocess (runner command execution)
+- React 18
+- Vite 5
 
-Note: OpenAI integration is implemented through an OpenAI-compatible HTTP client using urllib.request; the official openai SDK is not required.
+### Python Standard Library Used Heavily
+
+- argparse
+- pathlib
+- dataclasses
+- typing
+- os, sys
+- urllib.request
+- json
+- threading
+- subprocess
 
 ## Output Artifacts Produced
 
 - program-analysis.md
 - business-rules.md
+- intended-system.md
 - requirements.md
 - spec.md
 - plan.md
@@ -147,6 +187,7 @@ Note: OpenAI integration is implemented through an OpenAI-compatible HTTP client
 - qa-review-checklist.md
 - code-review-checklist.md
 - modernization-report.md
+- dual-model-analysis.md (dual mode)
 
 ## Configuration Surface
 
@@ -158,8 +199,14 @@ Environment variables:
 - AGENTIC_AI_BASE_URL
 - AGENTIC_AI_API_KEY
 - AGENTIC_AI_TIMEOUT_SECONDS
+- AGENTIC_CLAUDE_MODEL
+- AGENTIC_CLAUDE_BASE_URL
+- AGENTIC_CLAUDE_API_KEY
 
-CLI options:
+CLI examples:
 
-- run.py --mode openai --openai-api-key <key>
-- run_pipeline.py --use-ai --ai-provider openai --ai-api-key <key> ...
+- run_pipeline.py --dry-run
+- run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini
+- run_pipeline.py --use-ai --compare-with-claude --claude-model claude-haiku-4-5-20251001
+- run_pipeline.py --demo-mode --parallel-dual-run
+- run_pipeline.py --use-ai --compare-with-claude --parallel-dual-run --optimize-tokens

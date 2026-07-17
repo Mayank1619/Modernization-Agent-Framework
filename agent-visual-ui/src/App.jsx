@@ -334,6 +334,13 @@ function deriveDualFlow(events, run) {
 }
 
 function RunModeHints({ form }) {
+    if (form.demo_mode) {
+        return (
+            <p className="hint">
+                Demo mode runs non-AI primary, claude, and merge phases so you can visualize full flow without keys.
+            </p>
+        );
+    }
     if (form.use_ai && !form.compare_with_claude) {
         return <p className="hint">AI mode uses primary provider credentials from env or request fields.</p>;
     }
@@ -478,6 +485,29 @@ function ExecutionSignalPanel({
     );
 }
 
+function formatElapsedSeconds(seconds) {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const hrs = Math.floor(safeSeconds / 3600);
+    const mins = Math.floor((safeSeconds % 3600) / 60);
+    const secs = safeSeconds % 60;
+    if (hrs > 0) {
+        return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function computeElapsedSeconds(run, nowMs) {
+    if (!run?.started_at) {
+        return 0;
+    }
+    const startMs = Date.parse(run.started_at);
+    const endMs = run.ended_at ? Date.parse(run.ended_at) : nowMs;
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+        return 0;
+    }
+    return Math.max(0, Math.floor((endMs - startMs) / 1000));
+}
+
 export default function App() {
     const [form, setForm] = useState({
         pipeline: "mainframe_modernization",
@@ -485,7 +515,12 @@ export default function App() {
         output_path: ".agentic-sdlc/examples/inqacc/output",
         system_intent: ".agentic-sdlc/examples/inqacc/legacy/system-intent.md",
         use_ai: true,
-        compare_with_claude: true
+        compare_with_claude: true,
+        demo_mode: false,
+        parallel_dual_run: true,
+        optimize_tokens: true,
+        token_max_sources: 12,
+        token_preview_chars: 1400
     });
     const [runId, setRunId] = useState("");
     const [run, setRun] = useState(null);
@@ -493,6 +528,10 @@ export default function App() {
     const [selectedArtifact, setSelectedArtifact] = useState("");
     const [artifactContent, setArtifactContent] = useState("");
     const [error, setError] = useState("");
+    const [theme, setTheme] = useState(
+        () => window.localStorage.getItem("agent-visual-theme") || "classic"
+    );
+    const [nowMs, setNowMs] = useState(Date.now());
 
     const agents = useMemo(() => deriveAgents(run?.events || []), [run]);
     const completedCount = agents.filter((agent) => agent.status === "completed").length;
@@ -502,13 +541,24 @@ export default function App() {
         .find((event) => event.event === "agent_started")?.agent;
     const runSignal = getRunSignal(run?.status);
     const executionFlow = useMemo(() => deriveExecutionFlow(run), [run]);
-    const showDualFlow = Boolean(run?.compare_with_claude || form.compare_with_claude);
+    const showDualFlow = Boolean(run?.compare_with_claude || form.compare_with_claude || form.demo_mode);
     const primaryFlow = useMemo(() => deriveExecutionFlowForPhase(run, "primary"), [run]);
     const claudeFlow = useMemo(() => deriveExecutionFlowForPhase(run, "claude"), [run]);
     const dualFlow = useMemo(
         () => deriveDualFlow(run?.events || [], run),
         [run?.events, run?.status, run?.compare_with_claude]
     );
+    const elapsedSeconds = useMemo(() => computeElapsedSeconds(run, nowMs), [run, nowMs]);
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme;
+        window.localStorage.setItem("agent-visual-theme", theme);
+    }, [theme]);
+
+    useEffect(() => {
+        const timerId = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(timerId);
+    }, []);
 
     useEffect(() => {
         if (!runId) {
@@ -570,6 +620,13 @@ export default function App() {
             <header>
                 <h1>Agent Visual Dashboard</h1>
                 <p>Watch input move through agents into outputs with live traffic-signal states.</p>
+                <button
+                    type="button"
+                    className="theme-toggle"
+                    onClick={() => setTheme((prev) => (prev === "classic" ? "neon" : "classic"))}
+                >
+                    Theme: {theme === "neon" ? "Neon" : "Classic"}
+                </button>
             </header>
 
             <ExecutionSignalPanel
@@ -620,6 +677,7 @@ export default function App() {
                         <input
                             type="checkbox"
                             checked={form.use_ai}
+                            disabled={form.demo_mode}
                             onChange={(e) => setForm({ ...form, use_ai: e.target.checked })}
                         />
                         <span>Use AI</span>
@@ -627,17 +685,85 @@ export default function App() {
                     <label className="check">
                         <input
                             type="checkbox"
-                            checked={form.compare_with_claude}
-                            onChange={(e) =>
-                                setForm({ ...form, compare_with_claude: e.target.checked })
-                            }
+                            checked={form.compare_with_claude || form.demo_mode}
+                            disabled={form.demo_mode}
+                            onChange={(e) => setForm({ ...form, compare_with_claude: e.target.checked })}
                         />
                         <span>Compare with Claude</span>
+                    </label>
+                    <label className="check">
+                        <input
+                            type="checkbox"
+                            checked={form.demo_mode}
+                            onChange={(e) => {
+                                const enabled = e.target.checked;
+                                setForm({
+                                    ...form,
+                                    demo_mode: enabled,
+                                    use_ai: enabled ? false : form.use_ai,
+                                    compare_with_claude: enabled ? true : form.compare_with_claude
+                                });
+                            }}
+                        />
+                        <span>Demo Mode (non-AI dual phases)</span>
+                    </label>
+                    <label className="check">
+                        <input
+                            type="checkbox"
+                            checked={form.parallel_dual_run}
+                            onChange={(e) => setForm({ ...form, parallel_dual_run: e.target.checked })}
+                        />
+                        <span>Run OpenAI + Claude in Parallel</span>
+                    </label>
+                    <label className="check">
+                        <input
+                            type="checkbox"
+                            checked={form.optimize_tokens}
+                            onChange={(e) => setForm({ ...form, optimize_tokens: e.target.checked })}
+                        />
+                        <span>Optimize Token Usage</span>
+                    </label>
+                    <label>
+                        <span>Max Context Sources</span>
+                        <input
+                            type="number"
+                            min={4}
+                            max={30}
+                            value={form.token_max_sources}
+                            disabled={!form.optimize_tokens}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    token_max_sources: Number(e.target.value || 12)
+                                })
+                            }
+                        />
+                    </label>
+                    <label>
+                        <span>Preview Chars Per Source</span>
+                        <input
+                            type="number"
+                            min={400}
+                            max={4000}
+                            step={100}
+                            value={form.token_preview_chars}
+                            disabled={!form.optimize_tokens}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    token_preview_chars: Number(e.target.value || 1400)
+                                })
+                            }
+                        />
                     </label>
                     <button type="submit">Start Run</button>
                 </form>
                 {runId ? <p className="meta">Active Run ID: {runId}</p> : null}
-                {run ? <p className="meta">Run Status: {run.status}</p> : null}
+                {run ? (
+                    <p className="meta">
+                        Run Status: {run.status} <span className="timer-badge">Elapsed: {formatElapsedSeconds(elapsedSeconds)}</span>
+                    </p>
+                ) : null}
                 <RunModeHints form={form} />
                 {error ? <p className="error">{error}</p> : null}
             </section>

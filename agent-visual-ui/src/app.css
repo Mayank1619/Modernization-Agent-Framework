@@ -1,7 +1,7 @@
 :root {
     font-family: "Space Grotesk", "Segoe UI", sans-serif;
-    color: #1a1a16;
-    background:
+    --page-text: #1a1a16;
+    --page-bg:
         radial-gradient(circle at 10% 20%, rgba(255, 192, 121, 0.32), transparent 36%),
         radial-gradient(circle at 90% 10%, rgba(80, 190, 166, 0.3), transparent 40%),
         linear-gradient(140deg, #f7f4e9 0%, #eef5f1 54%, #f0ede2 100%);
@@ -13,9 +13,25 @@
     --line: #d6d2c1;
 }
 
+[data-theme="neon"] {
+    --page-text: #d6fff8;
+    --page-bg:
+        radial-gradient(circle at 12% 15%, rgba(0, 255, 198, 0.17), transparent 40%),
+        radial-gradient(circle at 88% 10%, rgba(255, 64, 179, 0.19), transparent 42%),
+        linear-gradient(145deg, #090814 0%, #101126 50%, #07161a 100%);
+    --green: #00d98c;
+    --yellow: #ffc94a;
+    --red: #ff5f7d;
+    --ink: #d6fff8;
+    --card: #131628;
+    --line: #2e365d;
+}
+
 body {
     margin: 0;
     min-height: 100vh;
+    color: var(--page-text);
+    background: var(--page-bg);
 }
 
 .layout {
@@ -29,6 +45,16 @@ header h1 {
     letter-spacing: -0.02em;
 }
 
+.theme-toggle {
+    margin-top: 8px;
+    background: linear-gradient(135deg, #13a987, #0f7f67);
+}
+
+[data-theme="neon"] .theme-toggle {
+    background: linear-gradient(135deg, #00d9ff, #6e59ff);
+    box-shadow: 0 0 0 1px rgba(111, 178, 255, 0.35), 0 0 28px rgba(0, 219, 255, 0.22);
+}
+
 .panel {
     background: var(--card);
     border: 1px solid var(--line);
@@ -36,6 +62,10 @@ header h1 {
     padding: 16px;
     margin-bottom: 16px;
     box-shadow: 0 10px 30px rgba(43, 56, 48, 0.08);
+}
+
+[data-theme="neon"] .panel {
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
 }
 
 .flow-panel {
@@ -53,6 +83,14 @@ header h1 {
     margin: 0 0 8px;
     font-size: 12px;
     color: #58564c;
+}
+
+[data-theme="neon"] .flow-caption,
+[data-theme="neon"] .workflow-meta,
+[data-theme="neon"] .exec-detail,
+[data-theme="neon"] .hint,
+[data-theme="neon"] .meta {
+    color: #9dd3c9;
 }
 
 .status-pill {
@@ -376,6 +414,18 @@ input {
     background: #fffeff;
 }
 
+[data-theme="neon"] input,
+[data-theme="neon"] pre,
+[data-theme="neon"] .event,
+[data-theme="neon"] .workflow-column,
+[data-theme="neon"] .signal-card,
+[data-theme="neon"] .merge-stage,
+[data-theme="neon"] .exec-node {
+    background: #131a33;
+    border-color: #30447f;
+    color: #d6fff8;
+}
+
 button {
     border: none;
     border-radius: 8px;
@@ -394,6 +444,22 @@ button:hover {
 .meta {
     margin: 10px 0 0;
     color: #3a4d46;
+}
+
+.timer-badge {
+    margin-left: 8px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--card), #eef5f1 25%);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+[data-theme="neon"] .timer-badge {
+    background: #1a223f;
+    border-color: #3f4e8b;
+    color: #98ffe5;
 }
 
 .hint {
@@ -477,6 +543,11 @@ td {
     text-align: left;
     background: linear-gradient(140deg, #edf7f3, #e7efe8);
     color: #164033;
+}
+
+[data-theme="neon"] .artifact-list button {
+    background: linear-gradient(140deg, #1f2455, #173054);
+    color: #9defff;
 }
 
 pre {

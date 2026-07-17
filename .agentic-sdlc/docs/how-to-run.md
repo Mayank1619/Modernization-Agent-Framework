@@ -1,5 +1,12 @@
 # How To Run
 
+## Execution Paths
+
+- Deterministic pipeline (`--dry-run`): no API keys required.
+- Single-model AI pipeline (`--use-ai`): primary provider key required.
+- Dual-model pipeline (`--compare-with-claude`): primary + Claude keys required.
+- Demo dual-model pipeline (`--demo-mode`): non-AI primary/claude/merge phases.
+
 ## Environment Setup (Safe Commit Workflow)
 
 Load order:
@@ -27,6 +34,18 @@ AGENTIC_CLAUDE_API_KEY=<YOUR_CLAUDE_KEY>
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output
 ```
 
+Deterministic mode:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --dry-run
+```
+
+Single-model AI mode:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com
+```
+
 ## Run Dual-Model Comparison (Primary + Claude)
 
 ```powershell
@@ -37,6 +56,20 @@ Dual-run requirements:
 
 - Primary key required: `AGENTIC_AI_API_KEY`
 - Claude key required: `AGENTIC_CLAUDE_API_KEY`
+
+Performance controls:
+
+- `--parallel-dual-run` (default on)
+- `--no-parallel-dual-run`
+- `--optimize-tokens`
+- `--token-max-sources`
+- `--token-preview-chars`
+
+Demo dual flow:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --demo-mode --parallel-dual-run
+```
 
 ## Verify Claude API Before Dual Run
 
@@ -59,6 +92,35 @@ python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/
 Dry-run note:
 
 - Dry-run works without keys when AI is disabled.
+
+## Visual API + Dashboard Flow
+
+Start backend:
+
+```powershell
+python -m uvicorn agent_visual_api:app --reload --port 8000
+```
+
+Start frontend:
+
+```powershell
+cd agent-visual-ui
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+Behavior:
+
+- `Use AI = off` runs deterministic mode.
+- `Use AI = on` requires `AGENTIC_AI_API_KEY`.
+- `Compare with Claude = on` requires `AGENTIC_CLAUDE_API_KEY`.
+- `Demo Mode = on` runs full dual phases without keys.
+- `Run OpenAI + Claude in Parallel` controls concurrent dual execution.
+- `Optimize Token Usage` applies compact prompt context limits.
+- Elapsed timer shows current run duration.
+- Dual runs emit phase events and merge summary in run events.
 
 ## Expected Outputs
 
