@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from llm.client import LlmClient
-from llm.http_clients import OllamaClient, OpenAiCompatibleClient
+from llm.http_clients import ClaudeClient, OllamaClient, OpenAiCompatibleClient
 
 
 @dataclass
@@ -22,7 +22,10 @@ def load_llm_settings() -> LlmSettings:
     enabled = os.getenv("AGENTIC_AI_ENABLED", "false").lower() == "true"
     provider = os.getenv("AGENTIC_AI_PROVIDER", "ollama").lower()
     model = os.getenv("AGENTIC_AI_MODEL", "llama3.1")
-    base_url = os.getenv("AGENTIC_AI_BASE_URL", "http://localhost:11434")
+    default_base_url = "http://localhost:11434"
+    if provider == "claude":
+        default_base_url = "https://api.anthropic.com"
+    base_url = os.getenv("AGENTIC_AI_BASE_URL", default_base_url)
     api_key = os.getenv("AGENTIC_AI_API_KEY", "")
     timeout_seconds = int(os.getenv("AGENTIC_AI_TIMEOUT_SECONDS", "120"))
     return LlmSettings(
@@ -50,6 +53,16 @@ def build_llm_client(settings: LlmSettings) -> Optional[LlmClient]:
         if not settings.api_key:
             raise ValueError("AGENTIC_AI_API_KEY is required for provider=openai")
         return OpenAiCompatibleClient(
+            base_url=settings.base_url,
+            model=settings.model,
+            api_key=settings.api_key,
+            timeout_seconds=settings.timeout_seconds,
+        )
+
+    if settings.provider == "claude":
+        if not settings.api_key:
+            raise ValueError("AGENTIC_AI_API_KEY is required for provider=claude")
+        return ClaudeClient(
             base_url=settings.base_url,
             model=settings.model,
             api_key=settings.api_key,

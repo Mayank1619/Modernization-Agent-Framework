@@ -1,5 +1,6 @@
 from .legacy_analysis_agent import LegacyAnalysisAgent
 from .business_rules_agent import BusinessRulesAgent
+from .system_intent_agent import SystemIntentAgent
 from .requirements_agent import RequirementsAgent
 from .spec_agent import SpecAgent
 from .plan_agent import PlanAgent
@@ -15,6 +16,7 @@ from .report_agent import ReportAgent
 __all__ = [
     "LegacyAnalysisAgent",
     "BusinessRulesAgent",
+    "SystemIntentAgent",
     "RequirementsAgent",
     "SpecAgent",
     "PlanAgent",

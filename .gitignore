@@ -16,3 +16,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated dual-model artifacts
+.agentic-sdlc/examples/inqacc/output_primary/
+.agentic-sdlc/examples/inqacc/output_claude/

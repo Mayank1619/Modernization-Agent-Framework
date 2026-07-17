@@ -16,6 +16,7 @@ from agents import (
     ReportAgent,
     RequirementsAgent,
     SpecAgent,
+    SystemIntentAgent,
     TaskAgent,
     TestSpecAgent,
 )
@@ -33,6 +34,7 @@ class PipelineRunner:
         output_root: Path,
         dry_run: bool = False,
         llm_client: LlmClient | None = None,
+        extra_context: Dict[str, str] | None = None,
     ) -> None:
         self.pipeline = pipeline
         self.templates_dir = templates_dir
@@ -40,9 +42,11 @@ class PipelineRunner:
         self.output_root = output_root
         self.dry_run = dry_run
         self.llm_client = llm_client
+        self.extra_context = extra_context or {}
         self.registry: Dict[str, Type[BaseAgent]] = {
             "LegacyAnalysisAgent": LegacyAnalysisAgent,
             "BusinessRulesAgent": BusinessRulesAgent,
+            "SystemIntentAgent": SystemIntentAgent,
             "RequirementsAgent": RequirementsAgent,
             "SpecAgent": SpecAgent,
             "PlanAgent": PlanAgent,
@@ -68,7 +72,11 @@ class PipelineRunner:
 
     def run(self) -> List[AgentResult]:
         self.output_root.mkdir(parents=True, exist_ok=True)
-        context = {"pipeline_name": self.pipeline.name, "dry_run": str(self.dry_run)}
+        context = {
+            "pipeline_name": self.pipeline.name,
+            "dry_run": str(self.dry_run),
+            **self.extra_context,
+        }
         results: List[AgentResult] = []
 
         print(f"[INFO] Input root: {self.input_root.as_posix()}")

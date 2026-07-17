@@ -37,6 +37,7 @@ def test_mainframe_pipeline_dry_run(tmp_path: Path) -> None:
     expected = [
         "program-analysis.md",
         "business-rules.md",
+        "intended-system.md",
         "requirements.md",
         "spec.md",
         "plan.md",

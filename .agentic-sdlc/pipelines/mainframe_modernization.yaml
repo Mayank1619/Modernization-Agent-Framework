@@ -3,6 +3,7 @@ description: Mainframe modernization artifact generation pipeline for legacy-fir
 agents:
   - name: LegacyAnalysisAgent
   - name: BusinessRulesAgent
+  - name: SystemIntentAgent
   - name: RequirementsAgent
   - name: SpecAgent
   - name: PlanAgent

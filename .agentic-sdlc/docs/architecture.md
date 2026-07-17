@@ -13,6 +13,8 @@ Provide a local, repository-based agentic framework for:
 - Templates: Markdown prompt templates consumed by each agent.
 - Pipelines: YAML files declaring ordered agent execution.
 - Orchestrator: Loads pipeline config and executes agents sequentially.
+- Dual-run Orchestrator: Executes primary and Claude runs, then merges artifacts.
+- LLM Clients: Ollama, OpenAI-compatible, and Claude HTTP clients.
 - Artifacts: Markdown and YAML outputs used by engineers and Copilot.
 
 ## Execution Model
@@ -23,10 +25,19 @@ Provide a local, repository-based agentic framework for:
 4. Each agent loads template, gathers inputs, writes output artifact files.
 5. Generated artifacts are reviewed and refined with Copilot in VS Code.
 
+## Dual-Model Execution Model
+
+1. Run primary model pipeline into output_primary.
+2. Run Claude model pipeline into output_claude.
+3. Compare artifacts by filename.
+4. Merge core artifacts with LLM-assisted reconciliation.
+5. Select non-core artifacts using deterministic detail heuristics.
+6. Write final merged outputs to output and publish dual-model-analysis.md.
+
 ## Design Principles
 
-- No cloud dependency
-- No external API calls
-- Simple modular classes
-- Transparent generated artifacts
-- Easy extension through new agents and pipelines
+- Local-first operation with optional cloud LLM integrations
+- Deterministic dry-run support for offline artifact scaffolding
+- Simple modular classes and explicit pipeline ordering
+- Transparent generated artifacts and comparison reporting
+- Easy extension through new agents, providers, and pipelines
