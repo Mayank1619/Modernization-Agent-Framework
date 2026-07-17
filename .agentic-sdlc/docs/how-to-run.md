@@ -95,6 +95,20 @@ Dry-run note:
 
 ## Visual API + Dashboard Flow
 
+Fastest start (Windows PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1
+```
+
+Optional custom ports:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1 -ApiPort 8010 -UiPort 5175
+```
+
+Manual start:
+
 Start backend:
 
 ```powershell
@@ -113,14 +127,16 @@ Open `http://localhost:5173`.
 
 Behavior:
 
-- `Use AI = off` runs deterministic mode.
-- `Use AI = on` requires `AGENTIC_AI_API_KEY`.
-- `Compare with Claude = on` requires `AGENTIC_CLAUDE_API_KEY`.
+- `Use OpenAI = off` runs deterministic mode.
+- `Use OpenAI = on` requires `AGENTIC_AI_API_KEY`.
+- `Use Claude = on` requires `AGENTIC_CLAUDE_API_KEY`.
 - `Demo Mode = on` runs full dual phases without keys.
 - `Run OpenAI + Claude in Parallel` controls concurrent dual execution.
 - `Optimize Token Usage` applies compact prompt context limits.
 - Elapsed timer shows current run duration.
 - Dual runs emit phase events and merge summary in run events.
+- Dual execution map shows both model flows converging to `Merge + Compare`, then `Final Output`.
+- Run controls display resolved OpenAI and Claude model names.
 
 ## Expected Outputs
 

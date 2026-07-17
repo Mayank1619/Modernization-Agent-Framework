@@ -112,8 +112,10 @@ flowchart TD
 - agent-visual-ui (React + Vite)
   - Starts pipeline runs from UI.
   - Displays live run events and dual-model phase progression.
+  - Displays connected dual-flow map: OpenAI + Claude -> Merge + Compare -> Final Output.
   - Displays elapsed run timer.
   - Supports Classic/Neon theme toggle.
+  - Displays resolved model names in run controls.
   - Displays generated artifacts in-browser.
 
 ## Runtime Flow
@@ -138,6 +140,12 @@ Demo-mode dual flow:
 2. Claude phase runs dry-run output generation.
 3. Merge phase combines outputs with heuristic selection.
 4. Full phase telemetry remains available for visualization.
+
+Dashboard startup flow:
+
+1. Preferred startup uses `scripts/start-dashboard.ps1` to launch API and UI together.
+2. UI run controls start pipeline runs via API endpoints.
+3. CLI commands remain available for direct/manual runs.
 
 ## Tech Stack
 

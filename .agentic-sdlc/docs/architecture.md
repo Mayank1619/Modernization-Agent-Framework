@@ -18,6 +18,7 @@ Provide a local, repository-based agentic framework for:
 - LLM Clients: Ollama, OpenAI-compatible, and Claude HTTP clients.
 - Visual API: FastAPI layer for run lifecycle, events, and artifact retrieval.
 - Visual Dashboard: React UI for run control and real-time status visualization.
+- Dashboard launcher script: `scripts/start-dashboard.ps1` for one-command API+UI startup.
 - Artifacts: Markdown and YAML outputs used by engineers and Copilot.
 
 ## Execution Model
@@ -52,6 +53,8 @@ Provide a local, repository-based agentic framework for:
 3. UI polls `/api/runs/{run_id}` for status and events.
 4. UI reads generated files via artifact endpoints.
 5. UI displays elapsed timer and allows Classic/Neon theme switching.
+6. Dual-view shows OpenAI/Claude workflows converging into `Merge + Compare` and then `Final Output`.
+7. Run controls display resolved model names for OpenAI and Claude.
 
 ## Design Principles
 

@@ -74,6 +74,22 @@ AI run with OpenAI-compatible provider:
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com
 ```
 
+## Easy Run (Dashboard)
+
+Use one command to launch both backend and UI in separate PowerShell windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1
+```
+
+Optional custom ports:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1 -ApiPort 8010 -UiPort 5175
+```
+
+Then open the UI URL printed by the script.
+
 ## Environment Configuration (Safe for Git)
 
 The runtime loads settings in this order:
@@ -167,16 +183,27 @@ npm run dev
 
 Then open `http://localhost:5173` to start runs, view agent execution events, and inspect generated outputs.
 
+### UI Screenshots
+
+Classic theme:
+
+![Agent Visual Dashboard - Classic](docs/images/dashboard-classic.png)
+
+Neon theme:
+
+![Agent Visual Dashboard - Neon](docs/images/dashboard-neon.png)
+
 UI behavior summary:
 
-- `Use AI = off`: runs in deterministic mode with no API keys.
-- `Use AI = on`: requires `AGENTIC_AI_API_KEY`.
-- `Compare with Claude = on`: also requires `AGENTIC_CLAUDE_API_KEY`.
+- `Use OpenAI = off`: runs in deterministic mode with no API keys.
+- `Use OpenAI = on`: requires `AGENTIC_AI_API_KEY`.
+- `Use Claude = on`: also requires `AGENTIC_CLAUDE_API_KEY`.
 - `Demo Mode = on`: forces non-AI dual-phase run with merge for realistic live demo flow.
 - `Run OpenAI + Claude in Parallel`: toggles concurrent dual execution.
 - `Optimize Token Usage`: enables compact prompt context controls.
 - Header shows elapsed run timer while execution is active.
-- Dual mode shows primary phase, secondary phase, and merge events.
+- Dual mode shows primary and Claude workflows converging into `Merge + Compare`, then `Final Output`.
+- Run controls show active model names from run metadata (for example OpenAI and Claude model IDs).
 - Theme toggle supports Classic and Neon visual styles.
 
 ## Legacy Runner Note

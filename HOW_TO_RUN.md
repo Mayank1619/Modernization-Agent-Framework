@@ -137,6 +137,20 @@ Demo mode behavior:
 
 ## 9. Run with Visual Dashboard (API + React)
 
+Fastest start (Windows PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1
+```
+
+Optional custom ports:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-dashboard.ps1 -ApiPort 8010 -UiPort 5175
+```
+
+Manual start:
+
 Start backend API:
 
 ```powershell
@@ -154,13 +168,14 @@ Open `http://localhost:5173`.
 
 UI run behavior:
 
-- `Use AI = off` runs deterministic mode without keys.
-- `Use AI = on` requires `AGENTIC_AI_API_KEY`.
-- `Compare with Claude = on` also requires `AGENTIC_CLAUDE_API_KEY`.
+- `Use OpenAI = off` runs deterministic mode without keys.
+- `Use OpenAI = on` requires `AGENTIC_AI_API_KEY`.
+- `Use Claude = on` also requires `AGENTIC_CLAUDE_API_KEY`.
 - `Demo Mode = on` runs full non-AI primary/claude/merge flow.
 - `Run OpenAI + Claude in Parallel` controls dual-run concurrency.
 - `Optimize Token Usage` enables compact prompt context.
-- In dual mode, events include primary phase, secondary phase, and merge summary.
+- In dual mode, the execution map shows OpenAI/Claude flows converging to `Merge + Compare`, then `Final Output`.
+- Run controls display resolved model names for OpenAI and Claude.
 - Header shows elapsed run timer.
 - Theme toggle switches between Classic and Neon UI.
 
