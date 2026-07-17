@@ -37,8 +37,29 @@ In dual-model mode it also produces:
 Recommended runner:
 
 ```powershell
-# Set AGENTIC_AI_API_KEY in .env first
+# Keep .env committed without secrets; set keys in .env.local
 python run.py --mode openai
+```
+
+## Environment Configuration (Safe for Git)
+
+The runtime loads settings in this order:
+
+1. Process environment variables
+2. `.env.local` (local secrets, git-ignored)
+3. `.env` (committed defaults)
+
+Commit policy:
+
+- Keep `AGENTIC_AI_API_KEY=` blank in `.env`
+- Keep `AGENTIC_CLAUDE_API_KEY=` blank in `.env`
+- Store real keys only in `.env.local`
+
+Example `.env.local`:
+
+```dotenv
+AGENTIC_AI_API_KEY=<YOUR_OPENAI_KEY>
+AGENTIC_CLAUDE_API_KEY=<YOUR_CLAUDE_KEY>
 ```
 
 Manual pipeline command:
@@ -53,6 +74,11 @@ python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --system-intent .agentic-sdlc/examples/inqacc/legacy/system-intent.md --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <PRIMARY_KEY> --compare-with-claude --claude-model claude-haiku-4-5-20251001 --claude-api-key <CLAUDE_KEY>
 ```
 
+Requirements:
+
+- Primary AI key is required for OpenAI-compatible mode.
+- Claude key is required when `--compare-with-claude` is enabled.
+
 Dual-model outputs:
 
 - .agentic-sdlc/examples/inqacc/output_primary
@@ -65,6 +91,24 @@ Dual-model outputs:
 ```powershell
 python test_claude_api.py
 ```
+
+## Visual Layer (React)
+
+Run API backend:
+
+```powershell
+python -m uvicorn agent_visual_api:app --reload --port 8000
+```
+
+Run React dashboard:
+
+```powershell
+cd agent-visual-ui
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173` to start runs, view agent execution events, and inspect generated outputs.
 
 ## Documentation
 

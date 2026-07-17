@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from llm.client import LlmClient
 from orchestrator.pipeline import PipelineRunner
@@ -98,7 +99,7 @@ def merge_dual_outputs(
     primary_output: Path,
     secondary_output: Path,
     merged_output: Path,
-    merge_client: LlmClient,
+    merge_client: LlmClient | None,
 ) -> List[ArtifactComparison]:
     merged_output.mkdir(parents=True, exist_ok=True)
     comparisons: List[ArtifactComparison] = []
@@ -127,7 +128,7 @@ def merge_dual_outputs(
             selected_source = "both"
             rationale = "Both model outputs are identical."
         else:
-            if artifact_name in CORE_MERGE_ARTIFACTS:
+            if artifact_name in CORE_MERGE_ARTIFACTS and merge_client is not None:
                 merged_text = _merge_with_llm(
                     artifact_name=artifact_name,
                     primary_text=primary_text,
@@ -188,38 +189,87 @@ def run_pipeline_dual_model(
     templates_dir: Path,
     input_root: Path,
     output_root: Path,
-    primary_client: LlmClient,
-    secondary_client: LlmClient,
+    primary_client: LlmClient | None,
+    secondary_client: LlmClient | None,
     extra_context: Dict[str, str] | None = None,
+    event_sink: Callable[[Dict[str, object]], None] | None = None,
+    parallel: bool = True,
+    primary_dry_run: bool = False,
+    secondary_dry_run: bool = False,
+    use_llm_merge: bool = True,
 ) -> List[ArtifactComparison]:
     primary_output = output_root.parent / f"{output_root.name}_primary"
     secondary_output = output_root.parent / f"{output_root.name}_claude"
 
-    primary_runner = PipelineRunner(
-        pipeline=pipeline,
-        templates_dir=templates_dir,
-        input_root=input_root,
-        output_root=primary_output,
-        dry_run=False,
-        llm_client=primary_client,
-        extra_context=extra_context,
-    )
-    primary_runner.run()
+    def _runner_for_phase(phase: str) -> PipelineRunner:
+        is_primary = phase == "primary"
+        return PipelineRunner(
+            pipeline=pipeline,
+            templates_dir=templates_dir,
+            input_root=input_root,
+            output_root=primary_output if is_primary else secondary_output,
+            dry_run=primary_dry_run if is_primary else secondary_dry_run,
+            llm_client=primary_client if is_primary else secondary_client,
+            extra_context=extra_context,
+            event_sink=(
+                None
+                if event_sink is None
+                else lambda event: event_sink({"phase": phase, **event})
+            ),
+        )
 
-    secondary_runner = PipelineRunner(
-        pipeline=pipeline,
-        templates_dir=templates_dir,
-        input_root=input_root,
-        output_root=secondary_output,
-        dry_run=False,
-        llm_client=secondary_client,
-        extra_context=extra_context,
-    )
-    secondary_runner.run()
+    def _run_phase(phase: str) -> None:
+        _runner_for_phase(phase).run()
 
-    return merge_dual_outputs(
+    if parallel:
+        if event_sink is not None:
+            event_sink({"event": "phase_started", "phase": "primary"})
+            event_sink({"event": "phase_started", "phase": "claude"})
+
+        phase_by_future = {}
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="dual-run") as executor:
+            phase_by_future[executor.submit(_run_phase, "primary")] = "primary"
+            phase_by_future[executor.submit(_run_phase, "claude")] = "claude"
+
+            pending = set(phase_by_future.keys())
+            while pending:
+                done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for future in done:
+                    phase = phase_by_future[future]
+                    # Re-raise any runner exception immediately.
+                    future.result()
+                    if event_sink is not None:
+                        event_sink({"event": "phase_completed", "phase": phase})
+    else:
+        if event_sink is not None:
+            event_sink({"event": "phase_started", "phase": "primary"})
+
+        _run_phase("primary")
+
+        if event_sink is not None:
+            event_sink({"event": "phase_completed", "phase": "primary"})
+            event_sink({"event": "phase_started", "phase": "claude"})
+
+        _run_phase("claude")
+
+        if event_sink is not None:
+            event_sink({"event": "phase_completed", "phase": "claude"})
+
+    if event_sink is not None:
+        event_sink({"event": "merge_started", "phase": "merge"})
+
+    comparisons = merge_dual_outputs(
         primary_output=primary_output,
         secondary_output=secondary_output,
         merged_output=output_root,
-        merge_client=primary_client,
+        merge_client=primary_client if use_llm_merge else None,
     )
+    if event_sink is not None:
+        event_sink(
+            {
+                "event": "merge_completed",
+                "phase": "merge",
+                "artifacts_compared": len(comparisons),
+            }
+        )
+    return comparisons

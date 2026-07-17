@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import time
-from typing import Dict, List, Type
+from typing import Callable, Dict, List, Type
 
 from agents import (
     BusinessRulesAgent,
@@ -35,6 +35,7 @@ class PipelineRunner:
         dry_run: bool = False,
         llm_client: LlmClient | None = None,
         extra_context: Dict[str, str] | None = None,
+        event_sink: Callable[[Dict[str, object]], None] | None = None,
     ) -> None:
         self.pipeline = pipeline
         self.templates_dir = templates_dir
@@ -43,6 +44,7 @@ class PipelineRunner:
         self.dry_run = dry_run
         self.llm_client = llm_client
         self.extra_context = extra_context or {}
+        self.event_sink = event_sink
         self.registry: Dict[str, Type[BaseAgent]] = {
             "LegacyAnalysisAgent": LegacyAnalysisAgent,
             "BusinessRulesAgent": BusinessRulesAgent,
@@ -59,6 +61,16 @@ class PipelineRunner:
             "CodeReviewAgent": CodeReviewAgent,
             "ReportAgent": ReportAgent,
         }
+
+    def _emit(self, event_type: str, payload: Dict[str, object]) -> None:
+        if self.event_sink is None:
+            return
+        event = {
+            "event": event_type,
+            "pipeline": self.pipeline.name,
+            **payload,
+        }
+        self.event_sink(event)
 
     def _discover_input_files(self) -> List[str]:
         if not self.input_root.exists():
@@ -89,6 +101,15 @@ class PipelineRunner:
             print("[WARN] No input files detected under input root.")
 
         enabled_steps = [step.name for step in self.pipeline.agents if step.enabled]
+        self._emit(
+            "run_started",
+            {
+                "enabled_agents": enabled_steps,
+                "input_root": self.input_root.as_posix(),
+                "output_root": self.output_root.as_posix(),
+                "dry_run": self.dry_run,
+            },
+        )
         print("[INFO] Agent execution plan:")
         for idx, name in enumerate(enabled_steps, start=1):
             print(f"  {idx}. {name}")
@@ -102,6 +123,7 @@ class PipelineRunner:
                 raise ValueError(f"Unknown agent '{step.name}' in pipeline '{self.pipeline.name}'")
 
             print(f"[START] {step.name}")
+            self._emit("agent_started", {"agent": step.name})
             start_time = time.perf_counter()
             agent = agent_cls(
                 templates_dir=self.templates_dir,
@@ -113,11 +135,44 @@ class PipelineRunner:
             try:
                 result = agent.run(context)
             except Exception as exc:
+                self._emit(
+                    "agent_failed",
+                    {
+                        "agent": step.name,
+                        "error": str(exc),
+                    },
+                )
+                self._emit(
+                    "run_completed",
+                    {
+                        "status": "failed",
+                        "error": str(exc),
+                    },
+                )
                 raise RuntimeError(f"Agent failed: {step.name}") from exc
 
             elapsed_seconds = time.perf_counter() - start_time
             outputs = ", ".join(path.name for path in result.outputs)
             print(f"[DONE] {step.name} ({elapsed_seconds:.2f}s) -> {outputs}")
+            self._emit(
+                "agent_completed",
+                {
+                    "agent": step.name,
+                    "duration_seconds": elapsed_seconds,
+                    "outputs": [path.name for path in result.outputs],
+                },
+            )
             results.append(result)
 
+        self._emit(
+            "run_completed",
+            {
+                "status": "completed",
+                "generated_files": [
+                    path.name
+                    for result in results
+                    for path in result.outputs
+                ],
+            },
+        )
         return results

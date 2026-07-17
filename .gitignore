@@ -10,6 +10,9 @@ __pycache__/
 .venv/
 venv/
 
+# Local secrets and machine-specific environment overrides
+.env.local
+
 # IDE
 .vscode/
 

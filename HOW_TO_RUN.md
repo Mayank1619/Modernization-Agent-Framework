@@ -3,8 +3,29 @@
 ## 0. Fastest Way (Recommended)
 
 ```powershell
-# Edit .env and set AGENTIC_AI_API_KEY=<YOUR_KEY>
+# Keep .env key-safe (blank keys), put real keys in .env.local
 python run.py --mode openai
+```
+
+## 0.1 Environment Files (Push-Safe)
+
+Use this precedence order:
+
+1. Process environment variables (highest)
+2. `.env.local` (local secrets, git-ignored)
+3. `.env` (committed defaults, no secrets)
+
+Rules:
+
+- Keep `AGENTIC_AI_API_KEY=` blank in `.env` before commit/push.
+- Keep `AGENTIC_CLAUDE_API_KEY=` blank in `.env` before commit/push.
+- Put real keys only in `.env.local`.
+
+Suggested `.env.local` content:
+
+```dotenv
+AGENTIC_AI_API_KEY=<YOUR_OPENAI_KEY>
+AGENTIC_CLAUDE_API_KEY=<YOUR_CLAUDE_KEY>
 ```
 
 ## 1. Prerequisites
@@ -57,6 +78,12 @@ Run dual-model compare + merge:
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --system-intent .agentic-sdlc/examples/inqacc/legacy/system-intent.md --use-ai --ai-provider openai --ai-model gpt-4o-mini --ai-base-url https://api.openai.com --ai-api-key <PRIMARY_KEY> --compare-with-claude --claude-model claude-haiku-4-5-20251001 --claude-api-key <CLAUDE_KEY>
 ```
 
+Requirements for dual-model mode:
+
+- `AGENTIC_AI_API_KEY` must be set (primary OpenAI-compatible run).
+- `AGENTIC_CLAUDE_API_KEY` must be set (secondary Claude run).
+- If either key is missing, the run fails fast with an explicit error.
+
 Generated folders/files in dual mode:
 
 - .agentic-sdlc/examples/inqacc/output_primary
@@ -88,3 +115,33 @@ Generated folders/files in dual mode:
 ```powershell
 python -m pytest -q tests
 ```
+
+## 9. Visual Agent Dashboard (React + API)
+
+Start API backend in one terminal:
+
+```powershell
+python -m uvicorn agent_visual_api:app --reload --port 8000
+```
+
+Start React UI in another terminal:
+
+```powershell
+cd agent-visual-ui
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+From the UI you can:
+
+- Start pipeline runs
+- Watch agent start/completion events in near real time
+- Inspect generated artifacts in the built-in viewer
+
+AI mode behavior in UI:
+
+- `Use AI = off` works without any keys (dry-run behavior).
+- `Use AI = on` requires `AGENTIC_AI_API_KEY`.
+- `Compare with Claude = on` additionally requires `AGENTIC_CLAUDE_API_KEY`.

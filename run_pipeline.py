@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Tuple
 
 
-def load_local_dotenv(repo_root: Path) -> None:
-    env_path = repo_root / ".env"
+def _load_env_file(env_path: Path, locked_keys: set[str]) -> None:
     if not env_path.exists():
         return
 
@@ -19,8 +18,15 @@ def load_local_dotenv(repo_root: Path) -> None:
         key, value = text.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
+        if key and key not in locked_keys:
             os.environ[key] = value
+
+
+def load_local_dotenv(repo_root: Path) -> None:
+    # Precedence: process env > .env.local > .env
+    locked_keys = set(os.environ.keys())
+    _load_env_file(repo_root / ".env", locked_keys)
+    _load_env_file(repo_root / ".env.local", locked_keys)
 
 
 def parse_args() -> argparse.Namespace:
