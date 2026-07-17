@@ -7,7 +7,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -328,24 +328,82 @@ def _serialize_record(record: RunRecord) -> Dict[str, object]:
 
 
 def _aggregate_token_usage(events: List[Dict[str, object]]) -> Dict[str, int]:
-    usage = {
+    usage_template = {
         "prompt_tokens": 0,
         "completion_tokens": 0,
         "total_tokens": 0,
         "estimated_tokens": 0,
     }
+    if _has_phase_run_completed(events):
+        return _sum_usage_for_events(
+            events,
+            {
+                "run_completed": lambda event: bool(event.get("phase")),
+                "merge_completed": lambda _event: True,
+            },
+            usage_template,
+        )
+
+    single_run_usage = _single_run_completed_usage(events, usage_template)
+    if single_run_usage is not None:
+        return single_run_usage
+
+    return _sum_usage_for_events(
+        events,
+        {
+            "agent_completed": lambda _event: True,
+            "merge_completed": lambda _event: True,
+        },
+        usage_template,
+    )
+
+
+def _has_phase_run_completed(events: List[Dict[str, object]]) -> bool:
+    return any(
+        event.get("event") == "run_completed"
+        and bool(event.get("phase"))
+        and isinstance(event.get("token_usage"), dict)
+        for event in events
+    )
+
+
+def _single_run_completed_usage(
+    events: List[Dict[str, object]],
+    usage_template: Dict[str, int],
+) -> Dict[str, int] | None:
     for event in events:
-        if event.get("event") == "run_completed" and isinstance(event.get("token_usage"), dict):
+        if (
+            event.get("event") == "run_completed"
+            and not event.get("phase")
+            and isinstance(event.get("token_usage"), dict)
+        ):
+            usage = dict(usage_template)
             data = event["token_usage"]
             for key in usage:
                 usage[key] = int(data.get(key, usage[key]) or 0)
             return usage
+    return None
 
-        if event.get("event") == "agent_completed" and isinstance(event.get("token_usage"), dict):
-            data = event["token_usage"]
-            for key in usage:
-                usage[key] += int(data.get(key, 0) or 0)
 
+def _sum_usage_for_events(
+    events: List[Dict[str, object]],
+    event_matchers: Dict[str, Callable[[Dict[str, object]], bool]],
+    usage_template: Dict[str, int],
+) -> Dict[str, int]:
+    usage = dict(usage_template)
+    for event in events:
+        event_name = event.get("event")
+        matcher = event_matchers.get(event_name)
+        if matcher is None:
+            continue
+        if not isinstance(event.get("token_usage"), dict):
+            continue
+        if not matcher(event):
+            continue
+
+        data = event["token_usage"]
+        for key in usage:
+            usage[key] += int(data.get(key, 0) or 0)
     return usage
 
 

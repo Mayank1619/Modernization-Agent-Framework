@@ -19,6 +19,12 @@ const DUAL_FLOW_STEPS = [
     }
 ];
 const DUAL_PHASE_IDS = new Set(["primary", "claude", "merge"]);
+const COST_RATES_PER_1K = {
+    primary: { prompt: 0.00015, completion: 0.0006, label: "OpenAI primary (est)" },
+    claude: { prompt: 0.0008, completion: 0.004, label: "Claude secondary (est)" },
+    merge: { prompt: 0.00015, completion: 0.0006, label: "Merge via primary (est)" },
+    single: { prompt: 0.00015, completion: 0.0006, label: "Single-model primary (est)" }
+};
 
 function deriveAgents(events) {
     const agents = new Map();
@@ -280,6 +286,92 @@ function getTokenUsage(run) {
         total: Number(usage.total_tokens || 0),
         estimated: Number(usage.estimated_tokens || 0)
     };
+}
+
+function normalizeUsage(raw) {
+    const prompt = Number(raw?.prompt_tokens || 0);
+    const completion = Number(raw?.completion_tokens || 0);
+    const total = Number(raw?.total_tokens || 0);
+    const estimated = Number(raw?.estimated_tokens || 0);
+    return {
+        prompt: Number.isFinite(prompt) ? prompt : 0,
+        completion: Number.isFinite(completion) ? completion : 0,
+        total: Number.isFinite(total) ? total : 0,
+        estimated: Number.isFinite(estimated) ? estimated : 0
+    };
+}
+
+function addUsage(a, b) {
+    return {
+        prompt: a.prompt + b.prompt,
+        completion: a.completion + b.completion,
+        total: a.total + b.total,
+        estimated: a.estimated + b.estimated
+    };
+}
+
+function applyRunCompletedUsage(event, phases) {
+    const phase = event.phase || "single";
+    if (phase in phases) {
+        phases[phase] = normalizeUsage(event.token_usage);
+    }
+    return Boolean(event.phase);
+}
+
+function applyEventTokenUsage(event, phases) {
+    if (event.event === "run_completed" && event.token_usage) {
+        return applyRunCompletedUsage(event, phases);
+    }
+
+    if (event.event === "merge_completed" && event.token_usage) {
+        phases.merge = normalizeUsage(event.token_usage);
+        return true;
+    }
+
+    return false;
+}
+
+function resolveTokenTotals(phases, sawDualPhase, run) {
+    if (!sawDualPhase && run?.token_usage) {
+        phases.single = normalizeUsage(run.token_usage);
+    }
+
+    const dualTotal = addUsage(addUsage(phases.primary, phases.claude), phases.merge);
+    return {
+        total: sawDualPhase ? dualTotal : phases.single,
+        mode: sawDualPhase ? "dual" : "single"
+    };
+}
+
+function derivePhaseTokenBreakdown(run) {
+    const events = run?.events || [];
+    const phases = {
+        primary: normalizeUsage(),
+        claude: normalizeUsage(),
+        merge: normalizeUsage(),
+        single: normalizeUsage()
+    };
+
+    let sawDualPhase = false;
+    for (const event of events) {
+        sawDualPhase = applyEventTokenUsage(event, phases) || sawDualPhase;
+    }
+
+    const { total, mode } = resolveTokenTotals(phases, sawDualPhase, run);
+    return {
+        phases,
+        total,
+        mode
+    };
+}
+
+function estimateUsageCost(usage, phase) {
+    const rate = COST_RATES_PER_1K[phase] || COST_RATES_PER_1K.single;
+    return ((usage.prompt / 1000) * rate.prompt) + ((usage.completion / 1000) * rate.completion);
+}
+
+function formatCurrency(value) {
+    return `$${Number(value || 0).toFixed(4)}`;
 }
 
 function applyPhaseStatusFromEvent(status, event) {
@@ -569,6 +661,21 @@ export default function App() {
         [run?.events, run?.status, run?.compare_with_claude]
     );
     const tokenUsage = useMemo(() => getTokenUsage(run), [run]);
+    const phaseBreakdown = useMemo(() => derivePhaseTokenBreakdown(run), [run]);
+    const displayedUsage = useMemo(() => {
+        const hasRunUsage = (tokenUsage.total || tokenUsage.estimated || tokenUsage.prompt || tokenUsage.completion) > 0;
+        return hasRunUsage ? tokenUsage : phaseBreakdown.total;
+    }, [tokenUsage, phaseBreakdown]);
+    const estimatedCostTotal = useMemo(() => {
+        if (phaseBreakdown.mode === "dual") {
+            return (
+                estimateUsageCost(phaseBreakdown.phases.primary, "primary")
+                + estimateUsageCost(phaseBreakdown.phases.claude, "claude")
+                + estimateUsageCost(phaseBreakdown.phases.merge, "merge")
+            );
+        }
+        return estimateUsageCost(phaseBreakdown.phases.single, "single");
+    }, [phaseBreakdown]);
     const elapsedSeconds = useMemo(() => computeElapsedSeconds(run, nowMs), [run, nowMs]);
 
     useEffect(() => {
@@ -661,7 +768,7 @@ export default function App() {
                 completedCount={completedCount}
                 runningAgent={runningAgent}
                 failedCount={failedCount}
-                tokenUsage={tokenUsage}
+                tokenUsage={displayedUsage}
             />
 
             <section className="panel">
@@ -785,14 +892,78 @@ export default function App() {
                     <p className="meta">
                         Run Status: {run.status}
                         <span className="timer-badge">Elapsed: {formatElapsedSeconds(elapsedSeconds)}</span>
-                        <span className="timer-badge token">Tokens: {formatNumber(tokenUsage.total || tokenUsage.estimated)}</span>
+                        <span className="timer-badge token">Tokens: {formatNumber(displayedUsage.total || displayedUsage.estimated)}</span>
+                        <span className="timer-badge token">Estimated Cost: {formatCurrency(estimatedCostTotal)}</span>
                         <span className="timer-badge token-sub">
-                            Prompt: {formatNumber(tokenUsage.prompt)} | Completion: {formatNumber(tokenUsage.completion)} | Est: {formatNumber(tokenUsage.estimated)}
+                            Prompt: {formatNumber(displayedUsage.prompt)} | Completion: {formatNumber(displayedUsage.completion)} | Est: {formatNumber(displayedUsage.estimated)}
                         </span>
+                        {phaseBreakdown.mode === "dual" ? (
+                            <span className="timer-badge token-sub">
+                                Primary: {formatNumber(phaseBreakdown.phases.primary.total || phaseBreakdown.phases.primary.estimated)} | Claude: {formatNumber(phaseBreakdown.phases.claude.total || phaseBreakdown.phases.claude.estimated)} | Merge: {formatNumber(phaseBreakdown.phases.merge.total || phaseBreakdown.phases.merge.estimated)}
+                            </span>
+                        ) : null}
                     </p>
                 ) : null}
                 <RunModeHints form={form} />
                 {error ? <p className="error">{error}</p> : null}
+            </section>
+
+            <section className="panel">
+                <h2>Token and Cost Breakdown</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Phase</th>
+                            <th>Prompt Tokens</th>
+                            <th>Completion Tokens</th>
+                            <th>Total Tokens</th>
+                            <th>Estimated Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {phaseBreakdown.mode === "dual" ? (
+                            <>
+                                <tr>
+                                    <td>Primary</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.primary.prompt)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.primary.completion)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.primary.total || phaseBreakdown.phases.primary.estimated)}</td>
+                                    <td>{formatCurrency(estimateUsageCost(phaseBreakdown.phases.primary, "primary"))}</td>
+                                </tr>
+                                <tr>
+                                    <td>Claude</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.claude.prompt)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.claude.completion)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.claude.total || phaseBreakdown.phases.claude.estimated)}</td>
+                                    <td>{formatCurrency(estimateUsageCost(phaseBreakdown.phases.claude, "claude"))}</td>
+                                </tr>
+                                <tr>
+                                    <td>Merge</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.merge.prompt)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.merge.completion)}</td>
+                                    <td>{formatNumber(phaseBreakdown.phases.merge.total || phaseBreakdown.phases.merge.estimated)}</td>
+                                    <td>{formatCurrency(estimateUsageCost(phaseBreakdown.phases.merge, "merge"))}</td>
+                                </tr>
+                            </>
+                        ) : (
+                            <tr>
+                                <td>Single</td>
+                                <td>{formatNumber(phaseBreakdown.phases.single.prompt)}</td>
+                                <td>{formatNumber(phaseBreakdown.phases.single.completion)}</td>
+                                <td>{formatNumber(phaseBreakdown.phases.single.total || phaseBreakdown.phases.single.estimated)}</td>
+                                <td>{formatCurrency(estimateUsageCost(phaseBreakdown.phases.single, "single"))}</td>
+                            </tr>
+                        )}
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td><strong>{formatNumber(phaseBreakdown.total.prompt)}</strong></td>
+                            <td><strong>{formatNumber(phaseBreakdown.total.completion)}</strong></td>
+                            <td><strong>{formatNumber(phaseBreakdown.total.total || phaseBreakdown.total.estimated)}</strong></td>
+                            <td><strong>{formatCurrency(estimatedCostTotal)}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p className="hint">Cost uses model-rate estimates for showcase and may differ from billed provider totals.</p>
             </section>
 
             <section className="panel">
