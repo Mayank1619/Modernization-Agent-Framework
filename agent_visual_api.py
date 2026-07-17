@@ -72,6 +72,14 @@ class RunRecord:
     started_at: str
     ended_at: str | None = None
     error: str | None = None
+    token_usage: Dict[str, int] = field(
+        default_factory=lambda: {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "estimated_tokens": 0,
+        }
+    )
     events: List[Dict[str, object]] = field(default_factory=list)
 
 
@@ -114,6 +122,16 @@ class RunStore:
             record.status = status
             record.error = error
             record.ended_at = _now_iso()
+
+    def set_token_usage(self, run_id: str, token_usage: Dict[str, int]) -> None:
+        with self._lock:
+            record = self._runs.get(run_id)
+            if record is None:
+                return
+            merged = dict(record.token_usage)
+            for key in ["prompt_tokens", "completion_tokens", "total_tokens", "estimated_tokens"]:
+                merged[key] = int(token_usage.get(key, merged.get(key, 0)) or 0)
+            record.token_usage = merged
 
 
 class StartRunRequest(BaseModel):
@@ -295,6 +313,7 @@ def _run_dual_model_pipeline(
             "event": "dual_model_summary",
             "artifacts_compared": len(comparisons),
             "demo_mode": request_data.demo_mode,
+            "token_usage": _aggregate_token_usage(store.get(run_id).events),
         },
     )
 
@@ -304,7 +323,30 @@ def _serialize_record(record: RunRecord) -> Dict[str, object]:
     start = datetime.fromisoformat(record.started_at)
     end = datetime.fromisoformat(record.ended_at) if record.ended_at else datetime.now(timezone.utc)
     payload["elapsed_seconds"] = max(0.0, (end - start).total_seconds())
+    payload["token_usage"] = dict(record.token_usage)
     return payload
+
+
+def _aggregate_token_usage(events: List[Dict[str, object]]) -> Dict[str, int]:
+    usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "estimated_tokens": 0,
+    }
+    for event in events:
+        if event.get("event") == "run_completed" and isinstance(event.get("token_usage"), dict):
+            data = event["token_usage"]
+            for key in usage:
+                usage[key] = int(data.get(key, usage[key]) or 0)
+            return usage
+
+        if event.get("event") == "agent_completed" and isinstance(event.get("token_usage"), dict):
+            data = event["token_usage"]
+            for key in usage:
+                usage[key] += int(data.get(key, 0) or 0)
+
+    return usage
 
 
 def _run_pipeline_task(run_id: str, request_data: StartRunRequest) -> None:
@@ -353,6 +395,8 @@ def _run_pipeline_task(run_id: str, request_data: StartRunRequest) -> None:
                 system_intent_path=system_intent_path,
                 event_sink=event_sink,
             )
+
+        store.set_token_usage(run_id, _aggregate_token_usage(store.get(run_id).events))
 
         store.complete(run_id, status="completed")
     except Exception as exc:

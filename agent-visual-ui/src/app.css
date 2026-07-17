@@ -348,7 +348,7 @@ header h1 {
 
 .signal-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
     gap: 10px;
 }
 
@@ -385,6 +385,11 @@ header h1 {
 .signal-card.red {
     border-color: color-mix(in srgb, var(--red), white 50%);
     background: color-mix(in srgb, var(--red), white 92%);
+}
+
+.signal-card.blue {
+    border-color: color-mix(in srgb, #2879d8, white 45%);
+    background: color-mix(in srgb, #2879d8, white 90%);
 }
 
 .grid {
@@ -456,10 +461,31 @@ button:hover {
     font-weight: 700;
 }
 
+.timer-badge.token {
+    margin-left: 6px;
+    background: color-mix(in srgb, #0f7f67, white 82%);
+}
+
+.timer-badge.token-sub {
+    margin-left: 6px;
+    font-weight: 500;
+}
+
 [data-theme="neon"] .timer-badge {
     background: #1a223f;
     border-color: #3f4e8b;
     color: #98ffe5;
+}
+
+[data-theme="neon"] .timer-badge.token {
+    background: #173d64;
+    border-color: #3e7de5;
+    color: #a9d7ff;
+}
+
+[data-theme="neon"] .signal-card.blue {
+    border-color: #4484ff;
+    background: #132b55;
 }
 
 .hint {

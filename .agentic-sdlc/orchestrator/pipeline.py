@@ -90,6 +90,12 @@ class PipelineRunner:
             **self.extra_context,
         }
         results: List[AgentResult] = []
+        run_token_usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "estimated_tokens": 0,
+        }
 
         print(f"[INFO] Input root: {self.input_root.as_posix()}")
         input_files = self._discover_input_files()
@@ -160,8 +166,11 @@ class PipelineRunner:
                     "agent": step.name,
                     "duration_seconds": elapsed_seconds,
                     "outputs": [path.name for path in result.outputs],
+                    "token_usage": result.token_usage,
                 },
             )
+            for key in run_token_usage:
+                run_token_usage[key] += int(result.token_usage.get(key, 0))
             results.append(result)
 
         self._emit(
@@ -173,6 +182,7 @@ class PipelineRunner:
                     for result in results
                     for path in result.outputs
                 ],
+                "token_usage": run_token_usage,
             },
         )
         return results

@@ -267,6 +267,21 @@ function getRunSignal(status) {
     return "neutral";
 }
 
+function formatNumber(value) {
+    const n = Number(value || 0);
+    return Number.isFinite(n) ? n.toLocaleString() : "0";
+}
+
+function getTokenUsage(run) {
+    const usage = run?.token_usage || {};
+    return {
+        prompt: Number(usage.prompt_tokens || 0),
+        completion: Number(usage.completion_tokens || 0),
+        total: Number(usage.total_tokens || 0),
+        estimated: Number(usage.estimated_tokens || 0)
+    };
+}
+
 function applyPhaseStatusFromEvent(status, event) {
     const phase = event.phase;
     if (!DUAL_PHASE_IDS.has(phase)) {
@@ -364,7 +379,8 @@ function ExecutionSignalPanel({
     dualFlow,
     completedCount,
     runningAgent,
-    failedCount
+    failedCount,
+    tokenUsage
 }) {
     return (
         <section className="panel flow-panel">
@@ -480,6 +496,10 @@ function ExecutionSignalPanel({
                     <h3>Failed</h3>
                     <p>{failedCount}</p>
                 </article>
+                <article className="signal-card blue">
+                    <h3>Tokens</h3>
+                    <p>{formatNumber(tokenUsage.total || tokenUsage.estimated)}</p>
+                </article>
             </div>
         </section>
     );
@@ -548,6 +568,7 @@ export default function App() {
         () => deriveDualFlow(run?.events || [], run),
         [run?.events, run?.status, run?.compare_with_claude]
     );
+    const tokenUsage = useMemo(() => getTokenUsage(run), [run]);
     const elapsedSeconds = useMemo(() => computeElapsedSeconds(run, nowMs), [run, nowMs]);
 
     useEffect(() => {
@@ -640,6 +661,7 @@ export default function App() {
                 completedCount={completedCount}
                 runningAgent={runningAgent}
                 failedCount={failedCount}
+                tokenUsage={tokenUsage}
             />
 
             <section className="panel">
@@ -761,7 +783,12 @@ export default function App() {
                 {runId ? <p className="meta">Active Run ID: {runId}</p> : null}
                 {run ? (
                     <p className="meta">
-                        Run Status: {run.status} <span className="timer-badge">Elapsed: {formatElapsedSeconds(elapsedSeconds)}</span>
+                        Run Status: {run.status}
+                        <span className="timer-badge">Elapsed: {formatElapsedSeconds(elapsedSeconds)}</span>
+                        <span className="timer-badge token">Tokens: {formatNumber(tokenUsage.total || tokenUsage.estimated)}</span>
+                        <span className="timer-badge token-sub">
+                            Prompt: {formatNumber(tokenUsage.prompt)} | Completion: {formatNumber(tokenUsage.completion)} | Est: {formatNumber(tokenUsage.estimated)}
+                        </span>
                     </p>
                 ) : null}
                 <RunModeHints form={form} />

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ class AgentResult:
     agent_name: str
     outputs: List[Path]
     dry_run: bool
+    token_usage: Dict[str, int]
 
 
 class BaseAgent:
@@ -39,9 +41,21 @@ class BaseAgent:
         self.output_root = output_root
         self.dry_run = dry_run
         self.llm_client = llm_client
+        self._token_usage: Dict[str, int] = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "estimated_tokens": 0,
+        }
 
     def run(self, context: Dict[str, str]) -> AgentResult:
         generated: List[Path] = []
+        self._token_usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "estimated_tokens": 0,
+        }
         prompt_text = self._load_prompt_template()
         input_context = self._collect_inputs()
         input_context = self._augment_input_context_with_context_files(input_context, context)
@@ -54,7 +68,12 @@ class BaseAgent:
             generated.append(target)
 
         self.validate(generated)
-        return AgentResult(agent_name=self.name, outputs=generated, dry_run=self.dry_run)
+        return AgentResult(
+            agent_name=self.name,
+            outputs=generated,
+            dry_run=self.dry_run,
+            token_usage=dict(self._token_usage),
+        )
 
     def _augment_input_context_with_context_files(
         self, input_context: Dict[str, str], context: Dict[str, str]
@@ -155,7 +174,9 @@ class BaseAgent:
                 "Input Preview Snippets:\n"
                 f"{previews}\n"
             )
-            return self.llm_client.generate(system_prompt=system_prompt, user_prompt=user_prompt)
+            content = self.llm_client.generate(system_prompt=system_prompt, user_prompt=user_prompt)
+            self._record_token_usage(system_prompt, user_prompt, content)
+            return content
 
         return (
             f"# {output_name}\n\n"
@@ -173,6 +194,36 @@ class BaseAgent:
             f"## Input Previews\n\n"
             f"{previews}\n"
         )
+
+    def _record_token_usage(self, system_prompt: str, user_prompt: str, content: str) -> None:
+        usage = None
+        if self.llm_client is not None and hasattr(self.llm_client, "get_last_usage"):
+            try:
+                usage = self.llm_client.get_last_usage()
+            except Exception:
+                usage = None
+
+        if isinstance(usage, dict):
+            prompt_tokens = int(usage.get("prompt_tokens") or 0)
+            completion_tokens = int(usage.get("completion_tokens") or 0)
+            total_tokens = int(usage.get("total_tokens") or (prompt_tokens + completion_tokens))
+
+            self._token_usage["prompt_tokens"] += prompt_tokens
+            self._token_usage["completion_tokens"] += completion_tokens
+            self._token_usage["total_tokens"] += total_tokens
+            self._token_usage["estimated_tokens"] += total_tokens
+            return
+
+        estimated_prompt = self._estimate_tokens(system_prompt) + self._estimate_tokens(user_prompt)
+        estimated_completion = self._estimate_tokens(content)
+        estimated_total = estimated_prompt + estimated_completion
+        self._token_usage["estimated_tokens"] += estimated_total
+        self._token_usage["total_tokens"] += estimated_total
+
+    def _estimate_tokens(self, text: str) -> int:
+        if not text:
+            return 0
+        return max(1, math.ceil(len(text) / 4))
 
     def _max_sources(self) -> int:
         raw = os.getenv("AGENTIC_CONTEXT_MAX_SOURCES", str(self.DEFAULT_MAX_SOURCES))

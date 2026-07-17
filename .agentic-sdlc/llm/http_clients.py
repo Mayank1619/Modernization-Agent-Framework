@@ -18,6 +18,7 @@ class OpenAiCompatibleClient(LlmClient):
     model: str
     api_key: str
     timeout_seconds: int = 120
+    last_usage: Dict[str, Any] | None = None
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         payload: Dict[str, Any] = {
@@ -57,6 +58,8 @@ class OpenAiCompatibleClient(LlmClient):
         if not choices:
             raise ValueError("OpenAI-compatible API returned no choices.")
 
+        self.last_usage = data.get("usage") if isinstance(data.get("usage"), dict) else None
+
         message = choices[0].get("message", {})
         content = message.get("content", "")
         if not content.strip():
@@ -64,12 +67,16 @@ class OpenAiCompatibleClient(LlmClient):
 
         return content.strip()
 
+    def get_last_usage(self) -> Dict[str, Any] | None:
+        return self.last_usage
+
 
 @dataclass
 class OllamaClient(LlmClient):
     base_url: str
     model: str
     timeout_seconds: int = 120
+    last_usage: Dict[str, Any] | None = None
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         payload: Dict[str, Any] = {
@@ -106,7 +113,21 @@ class OllamaClient(LlmClient):
         if not content.strip():
             raise ValueError("Ollama API returned empty content.")
 
+        prompt_tokens = int(data.get("prompt_eval_count") or 0)
+        completion_tokens = int(data.get("eval_count") or 0)
+        if prompt_tokens or completion_tokens:
+            self.last_usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            }
+        else:
+            self.last_usage = None
+
         return content.strip()
+
+    def get_last_usage(self) -> Dict[str, Any] | None:
+        return self.last_usage
 
 
 @dataclass
@@ -115,6 +136,7 @@ class ClaudeClient(LlmClient):
     model: str
     api_key: str
     timeout_seconds: int = 120
+    last_usage: Dict[str, Any] | None = None
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         payload: Dict[str, Any] = {
@@ -160,6 +182,17 @@ class ClaudeClient(LlmClient):
             ) from exc
 
         content_blocks = data.get("content", [])
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            input_tokens = int(usage.get("input_tokens") or 0)
+            output_tokens = int(usage.get("output_tokens") or 0)
+            self.last_usage = {
+                "prompt_tokens": input_tokens,
+                "completion_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+        else:
+            self.last_usage = None
         text_parts = [
             block.get("text", "")
             for block in content_blocks
@@ -170,3 +203,6 @@ class ClaudeClient(LlmClient):
             raise ValueError("Claude API returned empty content.")
 
         return content.strip()
+
+    def get_last_usage(self) -> Dict[str, Any] | None:
+        return self.last_usage
