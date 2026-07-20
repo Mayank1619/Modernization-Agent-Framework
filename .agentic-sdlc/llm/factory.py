@@ -16,6 +16,22 @@ class LlmSettings:
     base_url: str
     api_key: str
     timeout_seconds: int
+    max_output_tokens: Optional[int] = None
+
+
+def _parse_optional_positive_int(value: str | None) -> Optional[int]:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except ValueError:
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
 
 
 def load_llm_settings() -> LlmSettings:
@@ -28,6 +44,9 @@ def load_llm_settings() -> LlmSettings:
     base_url = os.getenv("AGENTIC_AI_BASE_URL", default_base_url)
     api_key = os.getenv("AGENTIC_AI_API_KEY", "")
     timeout_seconds = int(os.getenv("AGENTIC_AI_TIMEOUT_SECONDS", "120"))
+    max_output_tokens = _parse_optional_positive_int(
+        os.getenv("AGENTIC_AI_MAX_OUTPUT_TOKENS", "")
+    )
     return LlmSettings(
         enabled=enabled,
         provider=provider,
@@ -35,6 +54,7 @@ def load_llm_settings() -> LlmSettings:
         base_url=base_url,
         api_key=api_key,
         timeout_seconds=timeout_seconds,
+        max_output_tokens=max_output_tokens,
     )
 
 
@@ -57,6 +77,7 @@ def build_llm_client(settings: LlmSettings) -> Optional[LlmClient]:
             model=settings.model,
             api_key=settings.api_key,
             timeout_seconds=settings.timeout_seconds,
+            max_output_tokens=settings.max_output_tokens,
         )
 
     if settings.provider == "claude":
@@ -67,6 +88,7 @@ def build_llm_client(settings: LlmSettings) -> Optional[LlmClient]:
             model=settings.model,
             api_key=settings.api_key,
             timeout_seconds=settings.timeout_seconds,
+            max_output_tokens=settings.max_output_tokens or 4096,
         )
 
     raise ValueError(f"Unsupported AGENTIC_AI_PROVIDER: {settings.provider}")

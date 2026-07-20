@@ -69,6 +69,8 @@ class RunRecord:
     optimize_tokens: bool
     token_max_sources: int | None
     token_preview_chars: int | None
+    ai_max_output_tokens: int | None
+    claude_max_output_tokens: int | None
     started_at: str
     ended_at: str | None = None
     error: str | None = None
@@ -146,6 +148,8 @@ class StartRunRequest(BaseModel):
     optimize_tokens: bool = True
     token_max_sources: int | None = None
     token_preview_chars: int | None = None
+    ai_max_output_tokens: int | None = None
+    claude_max_output_tokens: int | None = None
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_base_url: str | None = None
@@ -185,6 +189,21 @@ def _apply_ai_env_overrides(request_data: StartRunRequest) -> None:
         os.environ["AGENTIC_AI_BASE_URL"] = request_data.ai_base_url
     if request_data.ai_api_key:
         os.environ["AGENTIC_AI_API_KEY"] = request_data.ai_api_key
+    if request_data.ai_max_output_tokens is not None:
+        os.environ["AGENTIC_AI_MAX_OUTPUT_TOKENS"] = str(request_data.ai_max_output_tokens)
+
+
+def _parse_optional_positive_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
 
 
 def _apply_token_optimization_overrides(request_data: StartRunRequest) -> None:
@@ -228,6 +247,15 @@ def _build_claude_client(
     claude_api_key = (
         request_data.claude_api_key or os.getenv("AGENTIC_CLAUDE_API_KEY", "")
     ).strip()
+    claude_max_output_tokens = request_data.claude_max_output_tokens
+    if claude_max_output_tokens is None:
+        claude_max_output_tokens = _parse_optional_positive_int(
+            os.getenv("AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS", "")
+        )
+    if claude_max_output_tokens is None:
+        claude_max_output_tokens = _parse_optional_positive_int(
+            os.getenv("AGENTIC_AI_MAX_OUTPUT_TOKENS", "")
+        )
     if not claude_api_key:
         raise ValueError("Claude API key is required for dual-model mode")
 
@@ -239,6 +267,7 @@ def _build_claude_client(
             base_url=claude_base_url,
             api_key=claude_api_key,
             timeout_seconds=timeout_seconds,
+            max_output_tokens=claude_max_output_tokens,
         )
     )
     if client is None:
@@ -496,6 +525,8 @@ def start_run(request_data: StartRunRequest) -> Dict[str, str]:
         optimize_tokens=request_data.optimize_tokens,
         token_max_sources=request_data.token_max_sources,
         token_preview_chars=request_data.token_preview_chars,
+        ai_max_output_tokens=request_data.ai_max_output_tokens,
+        claude_max_output_tokens=request_data.claude_max_output_tokens,
         started_at=_now_iso(),
     )
     store.create(record)

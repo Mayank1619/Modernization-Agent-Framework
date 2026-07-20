@@ -18,6 +18,7 @@ class OpenAiCompatibleClient(LlmClient):
     model: str
     api_key: str
     timeout_seconds: int = 120
+    max_output_tokens: int | None = None
     last_usage: Dict[str, Any] | None = None
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
@@ -29,6 +30,8 @@ class OpenAiCompatibleClient(LlmClient):
             ],
             "temperature": 0.2,
         }
+        if self.max_output_tokens is not None:
+            payload["max_tokens"] = self.max_output_tokens
 
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(
@@ -136,6 +139,7 @@ class ClaudeClient(LlmClient):
     model: str
     api_key: str
     timeout_seconds: int = 120
+    max_output_tokens: int = 4096
     last_usage: Dict[str, Any] | None = None
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
@@ -153,7 +157,7 @@ class ClaudeClient(LlmClient):
                     ],
                 }
             ],
-            "max_tokens": 4096,
+            "max_tokens": self.max_output_tokens,
         }
 
         body = json.dumps(payload).encode("utf-8")

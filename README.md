@@ -145,6 +145,46 @@ Token optimization controls:
 - `--optimize-tokens` (default on)
 - `--token-max-sources <n>`
 - `--token-preview-chars <n>`
+- `--ai-max-output-tokens <n>`
+- `--claude-max-output-tokens <n>`
+- `--auto-tune-tokens`
+- `--auto-tune-quality-threshold <0.0-1.0>`
+
+Token cap behavior:
+
+- Primary provider cap comes from `--ai-max-output-tokens` or `AGENTIC_AI_MAX_OUTPUT_TOKENS`.
+- Dual-run Claude cap comes from `--claude-max-output-tokens`, then `AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS`, then `AGENTIC_AI_MAX_OUTPUT_TOKENS`.
+- If no cap is set, provider defaults are used (Claude defaults to 4096 in this framework).
+
+Cost model (dashboard estimate):
+
+- Estimated cost = `(prompt_tokens / 1000 * prompt_rate) + (completion_tokens / 1000 * completion_rate)`
+- Completion tokens are usually the biggest controllable cost lever, so output caps are the fastest way to reduce spend.
+
+Token optimization process:
+
+1. Start with `--optimize-tokens` enabled and set `--token-max-sources 8 --token-preview-chars 1000`.
+2. Set an output cap: `--ai-max-output-tokens 1600` and, if dual-run is enabled, `--claude-max-output-tokens 1200`.
+3. Run once and capture token usage/cost from the dashboard or `/api/runs/<id>`.
+4. If quality is acceptable, reduce one variable at a time in this order: output cap, preview chars, max sources.
+5. If quality regresses, increase only the last changed setting and keep others low.
+6. Use dual-model mode only for high-confidence checkpoints, not every iteration.
+7. Re-baseline monthly or when models/prompts change.
+
+Auto-tune mode (recommended for first-time calibration):
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --auto-tune-tokens
+```
+
+How auto-tune works:
+
+1. Runs multiple preset token configurations.
+2. Scores each run for estimated quality (artifact structure, traceability IDs, completeness).
+3. Estimates cost from prompt/completion token usage.
+4. Applies quality threshold (default 0.92 of best quality), then selects lowest-cost candidate.
+5. Copies selected artifacts into the main output folder.
+6. Writes `token-optimization-report.md` with full comparison and recommended flags.
 
 Demo mode command:
 

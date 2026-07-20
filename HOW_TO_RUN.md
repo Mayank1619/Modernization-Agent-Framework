@@ -122,6 +122,62 @@ Token optimization options:
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --optimize-tokens --token-max-sources 12 --token-preview-chars 1400
 ```
 
+Auto-tune token settings (single-model AI mode):
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --auto-tune-tokens
+```
+
+Optional quality threshold override:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --auto-tune-tokens --auto-tune-quality-threshold 0.95
+```
+
+Auto-tune outputs:
+
+- Candidate folders: `<output>_autotune_*`
+- Selected best artifacts copied into configured output folder
+- Report: `token-optimization-report.md`
+
+Auto-tune constraints:
+
+- Requires `--use-ai`
+- Single-model mode only (do not combine with `--compare-with-claude`)
+- Cannot be combined with `--dry-run` or `--demo-mode`
+
+Add output token caps:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --optimize-tokens --token-max-sources 10 --token-preview-chars 1000 --ai-max-output-tokens 1600
+```
+
+Dual-run with explicit Claude cap:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --compare-with-claude --parallel-dual-run --ai-max-output-tokens 1800 --claude-max-output-tokens 1200
+```
+
+Output cap precedence:
+
+- Primary provider: `--ai-max-output-tokens` -> `AGENTIC_AI_MAX_OUTPUT_TOKENS`
+- Claude in dual mode: `--claude-max-output-tokens` -> `AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS` -> `AGENTIC_AI_MAX_OUTPUT_TOKENS`
+
+Token cost model:
+
+- Estimated cost = `(prompt_tokens / 1000 * prompt_rate) + (completion_tokens / 1000 * completion_rate)`
+- Completion tokens are typically the largest variable cost and should be tuned first.
+
+Suggested optimization workflow:
+
+1. Start with balanced settings: max sources 8-10, preview chars 900-1200, output cap 1400-1800.
+2. Run a representative sample input set and capture token usage.
+3. Reduce output cap first in 200-token steps until quality drops.
+4. Reduce preview chars next in 100-200 char steps.
+5. Reduce max sources last in 1-2 source steps.
+6. Promote dual-run to checkpoint validation only.
+7. Keep the best settings as your project baseline.
+
 ## 8. Demo Mode (Non-AI, Full Dual Flow)
 
 ```powershell
@@ -220,5 +276,6 @@ python -m pytest -q tests
 - If dual mode is too slow:
 	- Keep `--parallel-dual-run` enabled.
 	- Enable `--optimize-tokens` and tune source/preview limits.
+	- Set `--ai-max-output-tokens` and `--claude-max-output-tokens` to constrain completion spend.
 	- Use smaller/faster models where acceptable.
 

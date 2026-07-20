@@ -620,6 +620,17 @@ function computeElapsedSeconds(run, nowMs) {
     return Math.max(0, Math.floor((endMs - startMs) / 1000));
 }
 
+function parseOptionalPositiveInt(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+    }
+    return Math.floor(parsed);
+}
+
 export default function App() {
     const [form, setForm] = useState({
         pipeline: "mainframe_modernization",
@@ -632,7 +643,9 @@ export default function App() {
         parallel_dual_run: true,
         optimize_tokens: true,
         token_max_sources: 12,
-        token_preview_chars: 1400
+        token_preview_chars: 1400,
+        ai_max_output_tokens: "",
+        claude_max_output_tokens: ""
     });
     const [runId, setRunId] = useState("");
     const [run, setRun] = useState(null);
@@ -715,10 +728,15 @@ export default function App() {
         setSelectedArtifact("");
         setArtifactContent("");
         try {
+            const payload = {
+                ...form,
+                ai_max_output_tokens: parseOptionalPositiveInt(form.ai_max_output_tokens),
+                claude_max_output_tokens: parseOptionalPositiveInt(form.claude_max_output_tokens)
+            };
             const result = await fetchJson("/api/runs/start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(form)
+                body: JSON.stringify(payload)
             });
             setRun(null);
             setArtifacts([]);
@@ -881,6 +899,38 @@ export default function App() {
                                 setForm({
                                     ...form,
                                     token_preview_chars: Number(e.target.value || 1400)
+                                })
+                            }
+                        />
+                    </label>
+                    <label>
+                        <span>Primary Max Output Tokens (optional)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            step={50}
+                            value={form.ai_max_output_tokens}
+                            disabled={!form.use_ai || form.demo_mode}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    ai_max_output_tokens: e.target.value
+                                })
+                            }
+                        />
+                    </label>
+                    <label>
+                        <span>Claude Max Output Tokens (optional)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            step={50}
+                            value={form.claude_max_output_tokens}
+                            disabled={!form.compare_with_claude || form.demo_mode}
+                            onChange={(e) =>
+                                setForm({
+                                    ...form,
+                                    claude_max_output_tokens: e.target.value
                                 })
                             }
                         />

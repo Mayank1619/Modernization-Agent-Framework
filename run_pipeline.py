@@ -1,10 +1,48 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
+import re
+import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, List, Optional, Tuple
+
+
+PRIMARY_PROMPT_RATE_PER_1K = 0.00015
+PRIMARY_COMPLETION_RATE_PER_1K = 0.0006
+
+
+@dataclass
+class TunePreset:
+    name: str
+    max_sources: int
+    preview_chars: int
+    max_output_tokens: int
+
+
+@dataclass
+class TuneRunResult:
+    preset: TunePreset
+    output_dir: Path
+    token_usage: Dict[str, int]
+    estimated_cost: float
+    quality_score: float
+
+
+def _parse_optional_positive_int(value: str | None) -> Optional[int]:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
 
 
 def _load_env_file(env_path: Path, locked_keys: set[str]) -> None:
@@ -104,6 +142,15 @@ def parse_args() -> argparse.Namespace:
         help="API key for provider=openai. Defaults to env AGENTIC_AI_API_KEY.",
     )
     parser.add_argument(
+        "--ai-max-output-tokens",
+        type=int,
+        default=None,
+        help=(
+            "Optional max completion tokens for primary provider responses. "
+            "Defaults to env AGENTIC_AI_MAX_OUTPUT_TOKENS when set."
+        ),
+    )
+    parser.add_argument(
         "--compare-with-claude",
         action="store_true",
         help=(
@@ -161,6 +208,32 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Claude API key for secondary run. Defaults to env AGENTIC_CLAUDE_API_KEY.",
     )
+    parser.add_argument(
+        "--claude-max-output-tokens",
+        type=int,
+        default=None,
+        help=(
+            "Optional max completion tokens for Claude in dual-model mode. "
+            "Defaults to env AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS or AGENTIC_AI_MAX_OUTPUT_TOKENS."
+        ),
+    )
+    parser.add_argument(
+        "--auto-tune-tokens",
+        action="store_true",
+        help=(
+            "Benchmark multiple token settings, score quality vs cost, and select the "
+            "best configuration automatically."
+        ),
+    )
+    parser.add_argument(
+        "--auto-tune-quality-threshold",
+        type=float,
+        default=0.92,
+        help=(
+            "Minimum fraction of best quality score required for cost-based selection "
+            "during token auto-tuning (0.0 to 1.0). Default: 0.92."
+        ),
+    )
     parser.epilog = (
         "Examples:\n"
         "  python run_pipeline.py\n"
@@ -170,12 +243,13 @@ def parse_args() -> argparse.Namespace:
         "  python run_pipeline.py --use-ai --ai-provider openai --ai-model gpt-4o-mini "
         "--ai-base-url https://api.openai.com --ai-api-key <YOUR_KEY>\n"
         "  python run_pipeline.py --use-ai --ai-provider openai --compare-with-claude "
-        "--claude-model claude-haiku-4-5-20251001"
+        "--claude-model claude-haiku-4-5-20251001\n"
+        "  python run_pipeline.py --use-ai --auto-tune-tokens"
     )
     return parser.parse_args()
 
 
-def build_claude_settings(args) -> Tuple[str, str, str]:
+def build_claude_settings(args) -> Tuple[str, str, str, Optional[int]]:
     model = (
         args.claude_model
         or os.getenv("AGENTIC_CLAUDE_MODEL", "claude-haiku-4-5-20251001")
@@ -184,11 +258,20 @@ def build_claude_settings(args) -> Tuple[str, str, str]:
         "AGENTIC_CLAUDE_BASE_URL", "https://api.anthropic.com"
     )).strip()
     api_key = (args.claude_api_key or os.getenv("AGENTIC_CLAUDE_API_KEY", "")).strip()
+    max_output_tokens = args.claude_max_output_tokens
+    if max_output_tokens is None:
+        max_output_tokens = _parse_optional_positive_int(
+            os.getenv("AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS", "")
+        )
+    if max_output_tokens is None:
+        max_output_tokens = _parse_optional_positive_int(
+            os.getenv("AGENTIC_AI_MAX_OUTPUT_TOKENS", "")
+        )
     if not api_key:
         raise ValueError(
             "Claude dual-run requires a key. Set --claude-api-key or AGENTIC_CLAUDE_API_KEY."
         )
-    return model, base_url, api_key
+    return model, base_url, api_key, max_output_tokens
 
 
 def resolve_system_intent_path(args, repo_root: Path, framework_root: Path) -> str:
@@ -217,6 +300,8 @@ def apply_ai_env_overrides(args) -> None:
         os.environ["AGENTIC_AI_BASE_URL"] = args.ai_base_url
     if args.ai_api_key:
         os.environ["AGENTIC_AI_API_KEY"] = args.ai_api_key
+    if args.ai_max_output_tokens is not None:
+        os.environ["AGENTIC_AI_MAX_OUTPUT_TOKENS"] = str(args.ai_max_output_tokens)
 
 
 def apply_token_optimization_overrides(args) -> None:
@@ -288,7 +373,7 @@ def _prepare_dual_clients(args, llm_settings, llm_client):
     claude_client = None
 
     if not args.demo_mode:
-        claude_model, claude_base_url, claude_api_key = build_claude_settings(args)
+        claude_model, claude_base_url, claude_api_key, claude_max_output_tokens = build_claude_settings(args)
         claude_client = build_llm_client(
             LlmSettings(
                 enabled=True,
@@ -297,6 +382,7 @@ def _prepare_dual_clients(args, llm_settings, llm_client):
                 base_url=claude_base_url,
                 api_key=claude_api_key,
                 timeout_seconds=llm_settings.timeout_seconds,
+                max_output_tokens=claude_max_output_tokens,
             )
         )
         if claude_client is None:
@@ -367,6 +453,262 @@ def _run_dual_model(
     return 0 if comparisons else 1
 
 
+def _sanitize_name(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]+", "-", value).strip("-").lower() or "preset"
+
+
+def _sum_token_usage(results) -> Dict[str, int]:
+    usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "estimated_tokens": 0,
+    }
+    for result in results:
+        for key in usage:
+            usage[key] += int(result.token_usage.get(key, 0) or 0)
+    return usage
+
+
+def _estimate_primary_cost(token_usage: Dict[str, int]) -> float:
+    prompt_tokens = int(token_usage.get("prompt_tokens", 0) or 0)
+    completion_tokens = int(token_usage.get("completion_tokens", 0) or 0)
+    return (
+        (prompt_tokens / 1000.0) * PRIMARY_PROMPT_RATE_PER_1K
+        + (completion_tokens / 1000.0) * PRIMARY_COMPLETION_RATE_PER_1K
+    )
+
+
+def _score_artifact_quality(output_dir: Path) -> float:
+    files = [
+        path
+        for path in sorted(output_dir.glob("*"))
+        if path.is_file() and path.suffix.lower() in {".md", ".yaml", ".yml"}
+    ]
+    if not files:
+        return 0.0
+
+    total_chars = 0
+    heading_count = 0
+    table_count = 0
+    id_count = 0
+    filled_files = 0
+
+    id_pattern = re.compile(r"\b(?:FR|BR|NFR|AC|TC|TASK)-\d+\b", re.IGNORECASE)
+    for file_path in files:
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        stripped = text.strip()
+        if stripped:
+            filled_files += 1
+        total_chars += len(text)
+        heading_count += sum(1 for line in text.splitlines() if line.lstrip().startswith("#"))
+        table_count += sum(1 for line in text.splitlines() if "|" in line)
+        id_count += len(id_pattern.findall(text))
+
+    completeness = filled_files / max(1, len(files))
+    length_component = math.log10(max(total_chars, 10))
+    structure_component = (heading_count * 0.18) + (table_count * 0.04)
+    trace_component = id_count * 0.08
+    completeness_component = completeness * 6.0
+    return length_component + structure_component + trace_component + completeness_component
+
+
+def _copy_selected_artifacts(source_dir: Path, destination_dir: Path) -> None:
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    for path in destination_dir.glob("*"):
+        if path.is_file():
+            path.unlink()
+    for file_path in sorted(source_dir.glob("*")):
+        if not file_path.is_file():
+            continue
+        if file_path.suffix.lower() not in {".md", ".yaml", ".yml"}:
+            continue
+        shutil.copy2(file_path, destination_dir / file_path.name)
+
+
+def _build_tune_presets(args) -> List[TunePreset]:
+    base_output_cap = args.ai_max_output_tokens or 1600
+    return [
+        TunePreset(name="cost-first", max_sources=6, preview_chars=700, max_output_tokens=max(700, base_output_cap - 500)),
+        TunePreset(name="lean-balanced", max_sources=8, preview_chars=900, max_output_tokens=max(900, base_output_cap - 300)),
+        TunePreset(name="balanced", max_sources=10, preview_chars=1100, max_output_tokens=base_output_cap),
+        TunePreset(name="quality-lean", max_sources=12, preview_chars=1400, max_output_tokens=base_output_cap + 300),
+    ]
+
+
+def _candidate_sort_key(item: TuneRunResult) -> tuple[float, float, int]:
+    return (
+        item.estimated_cost,
+        -item.quality_score,
+        int(item.token_usage.get("total_tokens", 0) or 0),
+    )
+
+
+def _write_tune_report(
+    *,
+    output_root: Path,
+    runs: List[TuneRunResult],
+    best: TuneRunResult,
+    threshold: float,
+) -> Path:
+    max_quality = max(run.quality_score for run in runs) if runs else 0.0
+    qualified_runs = [
+        run for run in runs if (max_quality <= 0.0 or run.quality_score >= (max_quality * threshold))
+    ]
+
+    lines = [
+        "# Token Optimization Report",
+        "",
+        "Auto-tune benchmark completed with quality-and-cost scoring.",
+        "",
+        f"Quality threshold factor: {threshold:.2f}",
+        "",
+        "| Preset | Max Sources | Preview Chars | Max Output Tokens | Prompt Tokens | Completion Tokens | Total Tokens | Estimated Cost | Quality Score | Qualified | Output Folder |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
+    ]
+    qualified_names = {run.preset.name for run in qualified_runs}
+    for run in runs:
+        usage = run.token_usage
+        lines.append(
+            f"| {run.preset.name} | {run.preset.max_sources} | {run.preset.preview_chars} | "
+            f"{run.preset.max_output_tokens} | {usage.get('prompt_tokens', 0)} | "
+            f"{usage.get('completion_tokens', 0)} | {usage.get('total_tokens', 0)} | "
+            f"${run.estimated_cost:.6f} | {run.quality_score:.3f} | "
+            f"{'yes' if run.preset.name in qualified_names else 'no'} | {run.output_dir.name} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Recommended Settings",
+            "",
+            f"- Preset: {best.preset.name}",
+            f"- --token-max-sources {best.preset.max_sources}",
+            f"- --token-preview-chars {best.preset.preview_chars}",
+            f"- --ai-max-output-tokens {best.preset.max_output_tokens}",
+            "",
+            "Environment equivalent:",
+            "",
+            "```dotenv",
+            f"AGENTIC_CONTEXT_MAX_SOURCES={best.preset.max_sources}",
+            f"AGENTIC_CONTEXT_PREVIEW_CHARS={best.preset.preview_chars}",
+            f"AGENTIC_AI_MAX_OUTPUT_TOKENS={best.preset.max_output_tokens}",
+            "```",
+            "",
+            "Selected outputs were copied into the main output folder.",
+        ]
+    )
+
+    report_path = output_root / "token-optimization-report.md"
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
+def _run_token_auto_tune(
+    *,
+    args,
+    pipeline,
+    templates_dir: Path,
+    input_root: Path,
+    output_root: Path,
+    system_intent_path: str,
+) -> int:
+    if args.demo_mode:
+        raise ValueError("--auto-tune-tokens cannot be combined with --demo-mode")
+    if args.compare_with_claude:
+        raise ValueError("--auto-tune-tokens currently supports single-model runs only")
+    if args.dry_run:
+        raise ValueError("--auto-tune-tokens requires live AI generation, not --dry-run")
+    if not args.use_ai:
+        raise ValueError("--auto-tune-tokens requires --use-ai")
+
+    from llm.factory import build_llm_client, load_llm_settings
+    from orchestrator.pipeline import PipelineRunner
+
+    threshold = min(1.0, max(0.0, float(args.auto_tune_quality_threshold)))
+    presets = _build_tune_presets(args)
+    run_results: List[TuneRunResult] = []
+
+    print(f"[AUTO-TUNE] Evaluating {len(presets)} token presets...")
+
+    for index, preset in enumerate(presets, start=1):
+        os.environ["AGENTIC_CONTEXT_MAX_SOURCES"] = str(preset.max_sources)
+        os.environ["AGENTIC_CONTEXT_PREVIEW_CHARS"] = str(preset.preview_chars)
+        os.environ["AGENTIC_AI_MAX_OUTPUT_TOKENS"] = str(preset.max_output_tokens)
+
+        llm_settings = load_llm_settings()
+        llm_client = build_llm_client(llm_settings)
+        if llm_client is None:
+            raise ValueError("Failed to initialize LLM client for token auto-tune run")
+
+        candidate_dir = output_root.parent / f"{output_root.name}_autotune_{index}_{_sanitize_name(preset.name)}"
+        if candidate_dir.exists():
+            shutil.rmtree(candidate_dir)
+
+        print(
+            "[AUTO-TUNE] "
+            f"{index}/{len(presets)} {preset.name} "
+            f"(sources={preset.max_sources}, preview={preset.preview_chars}, output={preset.max_output_tokens})"
+        )
+
+        runner = PipelineRunner(
+            pipeline=pipeline,
+            templates_dir=templates_dir,
+            input_root=input_root,
+            output_root=candidate_dir,
+            dry_run=False,
+            llm_client=llm_client,
+            extra_context={"system_intent_path": system_intent_path},
+        )
+        results = runner.run()
+        usage = _sum_token_usage(results)
+        estimated_cost = _estimate_primary_cost(usage)
+        quality_score = _score_artifact_quality(candidate_dir)
+        run_results.append(
+            TuneRunResult(
+                preset=preset,
+                output_dir=candidate_dir,
+                token_usage=usage,
+                estimated_cost=estimated_cost,
+                quality_score=quality_score,
+            )
+        )
+
+    if not run_results:
+        raise RuntimeError("Token auto-tune did not produce any candidate runs")
+
+    max_quality = max(item.quality_score for item in run_results)
+    qualified = [
+        item
+        for item in run_results
+        if max_quality <= 0.0 or item.quality_score >= (max_quality * threshold)
+    ]
+    if not qualified:
+        qualified = run_results
+
+    best = min(qualified, key=_candidate_sort_key)
+
+    _copy_selected_artifacts(best.output_dir, output_root)
+    report_path = _write_tune_report(
+        output_root=output_root,
+        runs=run_results,
+        best=best,
+        threshold=threshold,
+    )
+
+    print("[AUTO-TUNE] Completed.")
+    print(f"[AUTO-TUNE] Recommended preset: {best.preset.name}")
+    print(
+        "[AUTO-TUNE] Recommended flags: "
+        f"--token-max-sources {best.preset.max_sources} "
+        f"--token-preview-chars {best.preset.preview_chars} "
+        f"--ai-max-output-tokens {best.preset.max_output_tokens}"
+    )
+    print(f"[AUTO-TUNE] Best output copied to: {output_root}")
+    print(f"[AUTO-TUNE] Report written: {report_path}")
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     repo_root = Path(__file__).resolve().parent
@@ -396,6 +738,16 @@ def main() -> int:
 
     apply_ai_env_overrides(args)
     apply_token_optimization_overrides(args)
+
+    if args.auto_tune_tokens:
+        return _run_token_auto_tune(
+            args=args,
+            pipeline=pipeline,
+            templates_dir=templates_dir,
+            input_root=input_root,
+            output_root=output_root,
+            system_intent_path=system_intent_path,
+        )
 
     llm_settings = load_llm_settings()
     llm_client = build_llm_client(llm_settings)

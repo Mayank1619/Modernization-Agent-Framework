@@ -64,6 +64,55 @@ Performance controls:
 - `--optimize-tokens`
 - `--token-max-sources`
 - `--token-preview-chars`
+- `--ai-max-output-tokens`
+- `--claude-max-output-tokens`
+- `--auto-tune-tokens`
+- `--auto-tune-quality-threshold`
+
+Recommended balanced command:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --optimize-tokens --token-max-sources 10 --token-preview-chars 1000 --ai-max-output-tokens 1600
+```
+
+Dual run with explicit token caps:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --compare-with-claude --parallel-dual-run --ai-max-output-tokens 1800 --claude-max-output-tokens 1200
+```
+
+Output cap precedence:
+
+- Primary provider: `--ai-max-output-tokens` -> `AGENTIC_AI_MAX_OUTPUT_TOKENS`
+- Claude dual-run: `--claude-max-output-tokens` -> `AGENTIC_CLAUDE_MAX_OUTPUT_TOKENS` -> `AGENTIC_AI_MAX_OUTPUT_TOKENS`
+
+Token cost model:
+
+- Estimated cost = `(prompt_tokens / 1000 * prompt_rate) + (completion_tokens / 1000 * completion_rate)`
+- Tune completion tokens first, then context size.
+
+Optimization workflow:
+
+1. Start with balanced defaults (8-10 sources, 900-1200 preview chars, 1400-1800 output cap).
+2. Measure tokens/cost on representative inputs.
+3. Reduce output cap in small steps.
+4. Reduce preview chars next.
+5. Reduce source count last.
+6. Use dual-run only for checkpoint validation.
+
+Auto-tune shortcut:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --auto-tune-tokens
+```
+
+Auto-tune selection behavior:
+
+1. Executes several preset token configurations.
+2. Scores quality and estimates cost per run.
+3. Filters by quality threshold (default 0.92 of highest quality).
+4. Picks the lowest-cost qualified preset.
+5. Publishes selected artifacts to the target output folder and writes `token-optimization-report.md`.
 
 Demo dual flow:
 
