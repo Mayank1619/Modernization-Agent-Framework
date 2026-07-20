@@ -261,3 +261,8 @@ UI behavior summary:
 - Runbook: HOW_TO_RUN.md
 - Framework docs: .agentic-sdlc/docs
 - Agent catalog: AGENTS.md
+- Copilot Agent workflow: docs/COPILOT_AGENT_WORKFLOW.md
+- Copilot prompts: docs/prompts/
+- Spec Kit bridge scripts: scripts/build_spec_bundle.py and scripts/publish_spec_bundle.py
+- Copilot Agent quick start: docs/COPILOT_AGENT_WORKFLOW.md#0-run-copilot-agent-in-vs-code
+- Copilot Agent day-1 checklist: docs/COPILOT_AGENT_WORKFLOW.md#01-day-1-5-minute-checklist
