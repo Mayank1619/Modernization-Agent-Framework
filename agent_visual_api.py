@@ -329,7 +329,10 @@ def _run_dual_model_pipeline(
         output_root=output_root,
         primary_client=None if request_data.demo_mode else llm_client,
         secondary_client=secondary_client,
-        extra_context={"system_intent_path": system_intent_path},
+        extra_context={
+            "system_intent_path": system_intent_path,
+            "demo_delay_seconds": 5,
+        },
         event_sink=event_sink,
         parallel=request_data.parallel_dual_run,
         primary_dry_run=request_data.demo_mode,

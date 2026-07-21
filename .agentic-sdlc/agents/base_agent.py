@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 import os
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List
 
@@ -66,6 +67,15 @@ class BaseAgent:
             content = self._generate_content(output_name, prompt_text, input_context, context)
             target.write_text(content, encoding="utf-8")
             generated.append(target)
+
+        delay_seconds = 0.0
+        if self.dry_run:
+            try:
+                delay_seconds = float(context.get("demo_delay_seconds", 0) or 0)
+            except (TypeError, ValueError):
+                delay_seconds = 0.0
+        if self.dry_run and delay_seconds > 0:
+            time.sleep(delay_seconds)
 
         self.validate(generated)
         return AgentResult(
