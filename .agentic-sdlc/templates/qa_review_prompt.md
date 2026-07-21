@@ -7,3 +7,5 @@ Include:
 - Rule-to-test coverage
 - Data mapping validation checks
 - Non-functional verification checks
+- Spec contains minimal implementation details
+- Artifacts do not contain conflicting information
