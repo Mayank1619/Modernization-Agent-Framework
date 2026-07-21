@@ -12,6 +12,7 @@ Include:
 - Team ownership suggestions
 
 Minimum detail expectations:
+- State implementation details that are absent from the spec.
 - Include explicit environment milestones (dev/test/uat/prod).
 - Include security hardening and compliance checkpoints.
 - Include dependency on API contract freeze and test strategy approval.
