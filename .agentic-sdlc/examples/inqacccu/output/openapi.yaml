@@ -1,0 +1,460 @@
+```yaml
+openapi: 3.0.3
+info:
+  title: INQACCCU Customer-Account Relationships Inquiry API
+  version: 1.0.0
+  description: |
+    Modernized REST API for customer-to-account relationship inquiry.
+    Replaces legacy COBOL CICS transaction INQACCCU.
+    Accepts a 10-digit customer number and returns 0–20 associated account records
+    with full account details (account number, sort code, balance, interest rate, statement date).
+    All endpoints require OAuth2 JWT bearer token authentication and role-based authorization.
+  contact:
+    name: Modernization Team
+  license:
+    name: IBM Corp. 2025
+
+servers:
+  - url: https://api.example.com
+    description: Production environment
+    variables:
+      basePath:
+        default: /api/v1
+  - url: https://staging-api.example.com
+    description: Staging environment
+    variables:
+      basePath:
+        default: /api/v1
+  - url: http://localhost:8080
+    description: Local development
+    variables:
+      basePath:
+        default: /api/v1
+
+tags:
+  - name: Customer Accounts
+    description: Customer account relationship inquiry operations
+
+paths:
+  /customers/{customerId}/accounts:
+    get:
+      operationId: inquireCustomerAccounts
+      tags:
+        - Customer Accounts
+      summary: Inquire customer account relationships
+      description: |
+        Accept a 10-digit customer number and return associated account records (0–20 accounts).
+        Returns full account details including balances, interest rates, and statement dates.
+        Preserves legacy INQACCCU observable behavior while providing modern JSON transport.
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          description: |
+            10-digit customer number (numeric only).
+            Maps to legacy CUSTOMER-NUMBER (PIC 9(10)).
+          schema:
+            type: string
+            pattern: '^\d{10}$'
+            minLength: 10
+            maxLength: 10
+          example: "0123456789"
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          description: |
+            Optional correlation ID for distributed tracing.
+            If not provided, server will generate and return in response header.
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      security:
+        - BearerAuth: [ROLE_CUSTOMER_INQUIRY]
+      responses:
+        "200":
+          description: |
+            Successfully retrieved customer and associated accounts.
+            customerFound indicates whether customer exists in system.
+            If customer not found, numberOfAccounts is 0 and accounts array is empty.
+          headers:
+            X-Correlation-ID:
+              description: Correlation ID for request tracing
+              schema:
+                type: string
+                format: uuid
+            X-RateLimit-Limit:
+              description: Maximum requests allowed in time window
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Remaining requests in current time window
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix timestamp when rate limit resets
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccountsResponse'
+              examples:
+                customerFoundWithAccounts:
+                  summary: Customer found with multiple accounts
+                  value:
+                    customerId: "0123456789"
+                    customerFound: true
+                    numberOfAccounts: 2
+                    accounts:
+                      - eyeCatcher: "ACCT"
+                        accountNumber: "12345678"
+                        sortCode: "123456"
+                        accountType: "SAVINGS"
+                        accountStatus: "ACTIVE"
+                        balance: 5000.00
+                        currency: "GBP"
+                        interestRate: 4.50
+                        statementDate: "2025-01-31"
+                      - eyeCatcher: "ACCT"
+                        accountNumber: "87654321"
+                        sortCode: "654321"
+                        accountType: "CURRENT"
+                        accountStatus: "ACTIVE"
+                        balance: 15000.00
+                        currency: "GBP"
+                        interestRate: 0.00
+                        statementDate: "2025-01-28"
+                customerNotFound:
+                  summary: Customer not found
+                  value:
+                    customerId: "9999999999"
+                    customerFound: false
+                    numberOfAccounts: 0
+                    accounts: []
+        "400":
+          description: |
+            Bad Request. Invalid customer ID format or missing required parameters.
+            Validation error details provided in response body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCustomerId:
+                  summary: Customer ID is not exactly 10 digits
+                  value:
+                    timestamp: "2025-01-15T10:30:45.123Z"
+                    status: 400
+                    error: "Bad Request"
+                    message: "Customer ID must be exactly 10 numeric digits"
+                    path: "/api/v1/customers/abc1234567/accounts"
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+                missingCustomerId:
+                  summary: Customer ID missing from path
+                  value:
+                    timestamp: "2025-01-15T10:30:45.123Z"
+                    status: 400
+                    error: "Bad Request"
+                    message: "Customer ID is required"
+                    path: "/api/v1/customers//accounts"
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "401":
+          description: |
+            Unauthorized. Missing or invalid JWT bearer token.
+            Includes WWW-Authenticate challenge header per RFC 6750.
+          headers:
+            WWW-Authenticate:
+              description: OAuth2 authentication challenge
+              schema:
+                type: string
+              example: 'Bearer realm="INQACCCU API", error="invalid_token", error_description="The access token expired"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: "2025-01-15T10:30:45.123Z"
+                status: 401
+                error: "Unauthorized"
+                message: "Missing or invalid JWT bearer token"
+                path: "/api/v1/customers/0123456789/accounts"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "403":
+          description: |
+            Forbidden. JWT is valid but user role does not have ROLE_CUSTOMER_INQUIRY permission.
+            User must be granted customer inquiry authorization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: "2025-01-15T10:30:45.123Z"
+                status: 403
+                error: "Forbidden"
+                message: "User role insufficient for customer account inquiry (required: ROLE_CUSTOMER_INQUIRY)"
+                path: "/api/v1/customers/0123456789/accounts"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "500":
+          description: |
+            Internal Server Error. Unexpected server-side failure.
+            Details logged server-side; correlation ID provided for investigation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: "2025-01-15T10:30:45.123Z"
+                status: 500
+                error: "Internal Server Error"
+                message: "An unexpected error occurred while processing your request"
+                path: "/api/v1/customers/0123456789/accounts"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        "503":
+          description: |
+            Service Unavailable. Downstream adapter (mock repository or external service) is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: "2025-01-15T10:30:45.123Z"
+                status: 503
+                error: "Service Unavailable"
+                message: "Account repository service temporarily unavailable"
+                path: "/api/v1/customers/0123456789/accounts"
+                correlationId: "550e8400-e29b-41d4-a716-446655440000"
+
+  /health:
+    get:
+      operationId: healthCheck
+      tags:
+        - System
+      summary: Health check endpoint
+      description: |
+        Returns basic health status of API. Does not require authentication.
+        Used for load balancer and monitoring health checks.
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "UP"
+                timestamp: "2025-01-15T10:30:45.123Z"
+
+components:
+  schemas:
+    CustomerAccountsResponse:
+      type: object
+      description: |
+        Response payload for customer account inquiry.
+        Maps from legacy INQACCCUZ copybook structure.
+        Preserves all observable behavior from original COBOL program.
+      required:
+        - customerId
+        - customerFound
+        - numberOfAccounts
+        - accounts
+      properties:
+        customerId:
+          type: string
+          description: |
+            10-digit customer number submitted in request.
+            Maps to legacy CUSTOMER-NUMBER (PIC 9(10)).
+          pattern: '^\d{10}$'
+          minLength: 10
+          maxLength: 10
+          example: "0123456789"
+        customerFound:
+          type: boolean
+          description: |
+            Indicates whether customer exists in system.
+            Maps to legacy CUSTOMER-FOUND (PIC X: 'Y'/'N').
+            If false, numberOfAccounts will be 0 and accounts array empty.
+          example: true
+        numberOfAccounts:
+          type: integer
+          description: |
+            Count of returned account records (0–20).
+            Maps to legacy NUMBER-OF-ACCOUNTS (PIC S9(8) BINARY).
+          minimum: 0
+          maximum: 20
+          example: 2
+        accounts:
+          type: array
+          description: |
+            Array of account detail records (0–20 elements).
+            Empty if customer not found or customer has no accounts.
+            Maps to legacy ACCOUNT-DETAILS repeating group.
+          minItems: 0
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/AccountDetail'
+
+    AccountDetail:
+      type: object
+      description: |
+        Account detail record for customer.
+        Maps from legacy ACCOUNT copybook structure and ACCDB2 record layout.
+        Preserves account status (Active, Inactive, Closed) regardless of status.
+      required:
+        - eyeCatcher
+        - accountNumber
+        - sortCode
+        - accountType
+        - accountStatus
+        - balance
+        - currency
+        - interestRate
+        - statementDate
+      properties:
+        eyeCatcher:
+          type: string
+          description: |
+            Fixed literal identifier for account record.
+            Maps to legacy ACCOUNT-EYECATCHER (PIC X(4) VALUE 'ACCT').
+          pattern: '^ACCT$'
+          minLength: 4
+          maxLength: 4
+          example: "ACCT"
+        accountNumber:
+          type: string
+          description: |
+            8-digit account number within sort code.
+            Maps to legacy ACCOUNT-NUMBER (PIC 9(8)).
+          pattern: '^\d{8}$'
+          minLength: 8
+          maxLength: 8
+          example: "12345678"
+        sortCode:
+          type: string
+          description: |
+            6-digit UK bank sort code.
+            Maps to legacy SORT-CODE (PIC 9(6)).
+          pattern: '^\d{6}$'
+          minLength: 6
+          maxLength: 6
+          example: "123456"
+        accountType:
+          type: string
+          description: |
+            Type of account (e.g., SAVINGS, CURRENT, FIXED).
+            Maps to legacy ACCOUNT-TYPE (PIC X(20)).
+          enum:
+            - SAVINGS
+            - CURRENT
+            - FIXED
+            - ISA
+            - MORTGAGE
+            - LOAN
+            - OTHER
+          example: "SAVINGS"
+        accountStatus:
+          type: string
+          description: |
+            Account status (ACTIVE, INACTIVE, CLOSED).
+            All statuses returned regardless of status value.
+            Maps to legacy ACCOUNT-STATUS (PIC X(10)).
+          enum:
+            - ACTIVE
+            - INACTIVE
+            - CLOSED
+            - SUSPENDED
+          example: "ACTIVE"
+        balance:
+          type: number
+          description: |
+            Current account balance in specified currency.
+            Decimal format with 2 fractional digits (pence/cents).
+            Maps to legacy ACCOUNT-BALANCE (PIC S9(13)V9(2) BINARY).
+          format: double
+          minimum: -999999999999.99
+          maximum: 999999999999.99
+          example: 5000.00
+        currency:
+          type: string
+          description: |
+            ISO 4217 currency code.
+            Maps to legacy CURRENCY-CODE (PIC X(3)).
+          pattern: '^[A-Z]{3}$'
+          minLength: 3
+          maxLength: 3
+          example: "GBP"
+        interestRate:
+          type: number
+          description: |
+            Annual interest rate as percentage (0–100.00).
+            Two decimal places. Zero for non-interest-bearing accounts.
+            Maps to legacy INTEREST-RATE (PIC S9(3)V9(2) BINARY).
+          format: double
+          minimum: 0.00
+          maximum: 100.00
+          example: 4.50
+        statementDate:
+          type: string
+          description: |
+            Date of most recent statement (ISO 8601 format: YYYY-MM-DD).
+            Maps to legacy STATEMENT-DATE (PIC 9(8) YYYYMMDD).
+          format: date
+          example: "2025-01-31"
+
+    ErrorResponse:
+      type: object
+      description: |
+        Standard error response payload.
+        All error responses (4xx, 5xx) follow this schema.
+        Includes timestamp, HTTP status, error classification, message, request path, and correlation ID for tracing.
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+        - path
+        - correlationId
+      properties:
+        timestamp:
+          type: string
+          description: |
+            ISO 8601 timestamp when error occurred (server time).
+            Format: YYYY-MM-DDTHH:mm:ss.SSSZ
+          format: date-time
+          example: "2025-01-15T10:30:45.123Z"
+        status:
+          type: integer
+          description: |
+            HTTP status code (400, 401, 403, 500, 503, etc.).
+          example: 400
+        error:
+          type: string
+          description: |
+            Short error classification.
+            Standard HTTP status text or custom error type.
+          example: "Bad Request"
+        message:
+          type: string
+          description: |
+            Human-readable error message describing root cause.
+            Suitable for API consumer troubleshooting and logging.
+          example: "Customer ID must be exactly 10 numeric digits"
+        path:
+          type: string
+          description: |
+            Request path that generated the error.
+            Aids in request identification and debugging.
+          example: "/api/v1/customers/abc1234567/accounts"
+        correlationId:
+          type: string
+          description: |
+            Unique correlation ID for request tracing across system.
+            Use in support tickets and log queries.
+            Formatted as UUID v4.
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        details:
+          type: object
+          description: |
+            Optional additional error details.
+```
