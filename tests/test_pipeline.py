@@ -124,10 +124,10 @@ def test_demo_mode_injects_delay_for_each_agent(monkeypatch, tmp_path: Path) -> 
         input_root=input_root,
         output_root=output_root,
         dry_run=True,
-        extra_context={"demo_delay_seconds": "5"},
+        extra_context={"demo_delay_seconds": "2"},
     )
     runner.run()
 
     assert sleep_calls, "Expected demo mode to call sleep at least once"
-    assert all(call == 5.0 for call in sleep_calls)
+    assert all(call == 2.0 for call in sleep_calls)
     assert len(sleep_calls) == len([step for step in config.agents if step.enabled])

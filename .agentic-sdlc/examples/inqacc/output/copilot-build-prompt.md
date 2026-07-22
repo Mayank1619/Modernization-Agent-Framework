@@ -1,387 +1,658 @@
+# copilot-build-prompt.md
+
+Status: DRY RUN
+
+Agent: CopilotPromptAgent
+Purpose: Generate implementation prompts that can be pasted directly into GitHub Copilot.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
 # Copilot Implementation Prompt
 
-**Document ID:** `copilot-build-prompt.md`  
-**Pipeline:** mainframe_modernization  
-**Authority:** system-intent.md + intended-system.md + business-rules.md + requirements.md + spec.md + program-analysis.md + mapping-matrix.md + plan.md + tasks.md + test-spec.md + traceability-matrix.md + openapi.yaml  
-**Status:** Implementation-ready Copilot guidance for iterative development  
-**Generated:** 2024  
-**Target Stack:** Java 21 + Spring Boot 3.3.x (backend) | React 18.x + TypeScript 5.x + Vite 5.x (frontend) | Mock Repository (POC)
+Use generated artifacts to produce implementation code in iterative pull requests.
 
----
+Inputs:
+- requirements.md
+- spec.md
+- plan.md
+- tasks.md
+- openapi.yaml
+- mapping-matrix.md
 
-## 1. Project Context and Objectives
+Guidance:
+- Implement smallest vertical slice first
+- Keep controllers thin
+- Keep business logic in services
+- Add tests for every business rule
 
-### 1.1 Modernization Goal
 
-Modernize the legacy INQACC CICS-DB2 account inquiry program into a cloud-ready, REST-based application with:
+## Input Previews
 
-- **Backend:** Spring Boot 3.3.x REST API (Java 21, Maven 3.9+)
-- **Frontend:** React 18.x web UI (TypeScript 5.x, Vite 5.x, Node.js 20 LTS)
-- **Persistence:** Mock in-memory repository (POC, no live DB2/CICS)
-- **Security:** OAuth2 bearer token authentication, role-based access control (ACCOUNT_INQUIRER role)
-- **Observability:** Structured JSON logging with correlation ID propagation, distributed tracing readiness
-- **API Contract:** OpenAPI 3.0.3 contract-first design (single source of truth)
-- **Backward Compatibility:** Preserve legacy DB2 WHERE clause semantics and field mapping from INQACC.cbl
+## Source: output/intended-system.md
 
-### 1.2 Critical Success Factors
+# intended-system.md
 
-| Factor | Indicator | Owner |
-|--------|-----------|-------|
-| **API Contract Stability** | OpenAPI 3.0.3 specification frozen by end of Phase 1 (week 4); no breaking changes without explicit governance | Architecture + API Team |
-| **Thin Controllers** | All business logic in service layer; controllers delegate all validation, lookup, and error translation | Backend Dev + Code Review |
-| **Comprehensive Testing** | 85%+ line coverage target; unit → integration → E2E test coverage; all 47+ test cases in test-spec.md implemented | QA + Backend Dev |
-| **Legacy Parity** | Field mapping and behavior match COBOL/DB2 analysis from program-analysis.md; composite-key semantics preserved | Backend Dev + QA |
-| **Iterative Delivery** | Implement smallest vertical slice first; deliver working code in each pull request; no incomplete features merged | Tech Lead + Scrum Master |
+Status: DRY RUN
 
----
+Agent: SystemIntentAgent
+Purpose: Define intended target system architecture and constraints before downstream requirement and spec generation.
 
-## 2. Development Environment Setup
+## Pipeline Context
 
-### 2.1 Prerequisites
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-**Backend Development:**
+## Inputs Considered
 
-```bash
-# Verify Java 21
-java -version
-# Expected: openjdk version "21.x.x" or Oracle JDK 21.x
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-in
 
-# Verify Maven 3.9+
-mvn -version
-# Expected: Apache Maven 3.9.x
+[...trimmed for token budget...]
 
-# Verify Git
-git --version
-# Expected: git version 2.40+
-```
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
 
-**Frontend Development:**
+## Source: provided/system-intent.md
 
-```bash
-# Verify Node.js 20 LTS
-node -v
-# Expected: v20.x.x
+# System Intent Blueprint
 
-# Verify npm 10+
-npm -v
-# Expected: 10.x.x
-```
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
 
-### 2.2 Project Initialization
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
 
-**Backend Setup:**
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
 
-```bash
-# Create Spring Boot 3.3.x starter project
-cd /workspace/inqacc-backend
-mvn archetype:generate \
-  -DgroupId=com.inqacc \
-  -DartifactId=inqacc-api \
-  -DarchetypeArtifactId=maven-archetype-quickstart \
-  -DinteractiveMode=false
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
 
-# Add Spring Boot parent POM (replace generated pom.xml parent section)
-# Target: Spring Boot 3.3.x with Spring Security OAuth2 Resource Server, Spring Data JPA, Springdoc OpenAPI
-```
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
 
-**Frontend Setup:**
+## Source: system-intent.md
 
-```bash
-# Create Vite + React + TypeScript project
-npm create vite@latest inqacc-ui -- --template react-ts
-cd inqacc-ui
-npm install
-```
+# System Intent Blueprint
 
-### 2.3 Key Dependencies
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
 
-**Backend (`pom.xml`):**
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
 
-```xml
-<properties>
-  <maven.compiler.source>21</maven.compiler.source>
-  <maven.compiler.target>21</maven.compiler.target>
-  <spring-boot.version>3.3.x</spring-boot.version>
-  <java.version>21</java.version>
-</properties>
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
 
-<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-dependencies</artifactId>
-      <version>${spring-boot.version}</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
 
-<dependencies>
-  <!-- Spring Web MVC -->
-  <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
-  </dependency>
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
 
-  <!-- Spring Security OAuth2 Resource Server -->
-  <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-  </dependency>
+## Source: output/business-rules.md
 
-  <!-- Spring Data JPA -->
-  <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-jpa</artifactId>
-  </dependency>
+# business-rules.md
 
-  <!-- H2 Database (Mock Persistence) -->
-  <dependency>
-    <groupId>com.h2database</groupId>
-    <artifactId>h2</artifactId>
-    <scope>runtime</scope>
-  </dependency>
+Status: DRY RUN
 
-  <!-- Springdoc OpenAPI (Swagger UI + auto-generation) -->
-  <dependency>
-    <groupId>org.springdoc</groupId>
-    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-    <version>2.x.x</version>
-  </dependency>
+Agent: BusinessRulesAgent
+Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
 
-  <!-- Logging: Structured JSON logs -->
-  <dependency>
-    <groupId>net.logstash.logback</groupId>
-    <artifactId>logstash-logback-encoder</artifactId>
-    <version>7.x</version>
-  </dependency>
+## Pipeline Context
 
-  <!-- JUnit 5 + Mockito -->
-  <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-test</artifactId>
-    <scope>test</scope>
-  </dependency>
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-  <!-- REST Assured for Integration Tests -->
-  <dependency>
-    <groupId>io.rest-assured</groupId>
-    <artifactId>rest-assured</artifactId>
-    <version>5.x</version>
-    <scope>test</scope>
-  </dependency>
-</dependencies>
-```
+## Inputs Considered
 
-**Frontend (`package.json`):**
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
 
-```json
-{
-  "name": "inqacc-ui",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives"
-  },
-  "dependencies": {
-    "react": "^18.x.x",
-    "react-dom": "^18.x.x",
-    "react-router-dom": "^6.x.x",
-    "axios": "^1.x.x"
-  },
-  "devDependencies": {
-    "@types/react": "^18.x.x",
-    "@types/react-dom": "^18.x.x",
-    "@typescript-eslint/eslint-plugin": "^6.x.x",
-    "@typescript-eslint/parser": "^6.x.x",
-    "@vitejs/plugin-react": "^4.x.x",
-    "eslint": "^8.x.x",
-    "typescript": "^5.x.x",
-    "vite": "^5.x.x",
-    "vitest": "^0.x.x",
-    "@testing-library/react": "^14.x.x",
-    "@testing-library/jest-dom": "^6.x.x"
-  }
-}
-```
+## Prompt Template
 
----
+#
 
-## 3. Architecture and Implementation Patterns
+[...trimmed for token budget...]
 
-### 3.1 Backend Layered Architecture
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
 
-```
-com.inqacc.
-├── controller/
-│   ├── AccountInquiryController.java          # HTTP GET /v1/accounts/{sortcode}/{accountNumber}
-│   └── advice/
-│       └── AccountInquiryControllerAdvice.java # @ExceptionHandler → standardized error envelope
-├── service/
-│   ├── AccountInquiryService.java             # Core business logic: validation, lookup, error translation
-│   └── CorrelationIdService.java              # Generate/propagate correlation ID
-├── repository/
-│   ├── AccountRepository.java                 # Spring Data JPA: findBySortcodeAndNumber()
-│   └── AccountRepositoryImpl.java              # Custom implementation if needed
-├── entity/
-│   ├── Account.java                           # JPA Entity mapping to ACCOUNT table
-│   └── AccountMapper.java                     # Entity ↔ DTO transformation
-├── dto/
-│   ├── AccountRequestDto.java                 # Request binding (path vars)
-│   ├── AccountResponseDto.java                # Response DTO (all 12 fields from program-analysis.md)
-│   ├── ErrorResponseDto.java                  # Standardized error envelope (spec §3.2)
-│   └── ValidationErrorDto.java                # Field-level validation details
-├── exception/
-│   ├── AccountNotFoundException.java           # No matching record (HTTP 404)
-│   ├── InvalidAccountFormatException.java     # Format validation failure (HTTP 400)
-│   ├── AccountRepositoryException.java        # Data access layer errors (HTTP 503/500)
-│   └── UnauthorizedException.java             # Missing/invalid token (HTTP 401)
-├── security/
-│   ├── SecurityConfig.java                    # OAuth2 Resource Server configuration
-│   ├── JwtConverter.java                      # Extract roles from JWT token
-│   └── AuthenticationFilter.java               # Optional custom authentication logic
-├── logging/
-│   ├── StructuredLogProvider.java             # Centralized structured logging with correlation ID
-│   └── RequestLoggingFilter.java               # Log HTTP request/response with correlation ID
-├── config/
-│   ├── OpenApiConfig.java                     # Springdoc OpenAPI auto-generation configuration
-│   └── ApplicationProperties.java              # @ConfigurationProperties for env vars
-├── mock/
-│   └── MockAccountDataInitializer.java        # Load mock test data on startup (H2)
-└── Application.java                            # Spring Boot entry point
-```
+## Source: output/requirements.md
 
-### 3.2 Controller Implementation Pattern (Thin Controller)
+# requirements.md
 
-```java
-// AccountInquiryController.java
-@RestController
-@RequestMapping("/v1/accounts")
-@RequiredArgsConstructor
-@Slf4j
-public class AccountInquiryController {
+Status: DRY RUN
 
-  private final AccountInquiryService accountInquiryService;
-  private final CorrelationIdService correlationIdService;
+Agent: RequirementsAgent
+Purpose: Produce structured requirements from business rules and legacy findings.
 
-  /**
-   * GET /v1/accounts/{sortcode}/{accountNumber}
-   * Retrieve account by composite key. Delegates all business logic to service layer.
-   * 
-   * @param sortcode ACCOUNT_SORTCODE (6 numeric digits)
-   * @param accountNumber ACCOUNT_NUMBER (8 numeric digits)
-   * @param correlationId optional X-Correlation-ID header (generated if not provided)
-   * @return AccountResponseDto with all 12 ACCOUNT fields
-   */
-  @GetMapping("/{sortcode}/{accountNumber}")
-  public ResponseEntity<AccountResponseDto> getAccount(
-      @PathVariable @Pattern(regexp = "^\\d{6}$") String sortcode,
-      @PathVariable @Pattern(regexp = "^\\d{8}$") String accountNumber,
-      @RequestHeader(name = "X-Correlation-ID", required = false) String correlationId) {
+## Pipeline Context
 
-    // Generate or use provided correlation ID
-    String requestCorrelationId = correlationIdService.getOrGenerateCorrelationId(correlationId);
-    
-    // Log request
-    log.info("Account inquiry request",
-        Map.of(
-            "correlationId", requestCorrelationId,
-            "sortcode", sortcode,
-            "accountNumber", accountNumber
-        ));
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-    // Delegate to service layer
-    AccountResponseDto response = accountInquiryService.inquireAccount(
-        sortcode, accountNumber, requestCorrelationId);
+## Inputs Considered
 
-    // Return with correlation ID in response header
-    return ResponseEntity.ok()
-        .header("X-Correlation-ID", requestCorrelationId)
-        .body(response);
-  }
-}
-```
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
 
-### 3.3 Service Implementation Pattern (Business Logic)
+## Prompt Template
 
-```java
-// AccountInquiryService.java
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class AccountInquiryService {
+# Requireme
 
-  private final AccountRepository accountRepository;
+[...trimmed for token budget...]
 
-  /**
-   * Execute account inquiry by composite key.
-   * Encapsulates all validation, lookup, and error translation logic.
-   * 
-   * Linked to:
-   * - BR-001: Account Record Lookup by Composite Key
-   * - BR-002: Sortcode Format Validation
-   * - BR-003: Account Number Format Validation
-   * - FR-001, FR-002, FR-003, FR-004, FR-005, FR-006
-   * 
-   * @param sortcode ACCOUNT_SORTCODE (pre-validated by controller)
-   * @param accountNumber ACCOUNT_NUMBER (pre-validated by controller)
-   * @param correlationId for correlation and tracing
-   * @return AccountResponseDto with all populated fields
-   * @throws InvalidAccountFormatException if sortcode or accountNumber format invalid (HTTP 400)
-   * @throws AccountNotFoundException if no matching record (HTTP 404)
-   * @throws AccountRepositoryException if database error (HTTP 503/500)
-   */
-  public AccountResponseDto inquireAccount(
-      String sortcode, String accountNumber, String correlationId) {
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
 
-    // Step 1: Validate sortcode format (BR-002)
-    validateSortcode(sortcode);
+## Source: output/spec.md
 
-    // Step 2: Validate account number format (BR-003)
-    validateAccountNumber(accountNumber);
+# spec.md
 
-    // Step 3: Execute composite-key lookup (BR-001)
-    // Maps to legacy INQACC.cbl SQL: SELECT * FROM ACCOUNT WHERE ACCOUNT_SORTCODE = ? AND ACCOUNT_NUMBER = ?
-    Account account = accountRepository.findBySortcodeAndNumber(sortcode, accountNumber)
-        .orElseThrow(() -> new AccountNotFoundException(
-            String.format("Account not found for sortcode=%s, accountNumber=%s", sortcode, accountNumber),
-            correlationId));
+Status: DRY RUN
 
-    // Step 4: Map entity to response DTO (preserves all 12 fields from program-analysis.md)
-    AccountResponseDto response = AccountMapper.toResponseDto(account);
-    response.setCorrelationId(correlationId);
+Agent: SpecAgent
+Purpose: Generate implementation-ready functional and technical specification.
 
-    // Step 5: Log successful lookup
-    log.info("Account inquiry successful",
-        Map.of(
-            "correlationId", correlationId,
-            "accountId", account.getAccountId(),
-            "accountStatus", account.getAccountStatus()
-        ));
+## Pipeline Context
 
-    return response;
-  }
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-  /**
-   * Validate sortcode format (BR-002).
-   * Must be exactly 6 numeric digits.
-   */
-  private void validateSortcode(String sortcode) {
-    if (sortcode == null || !sortcode.matches("^\\d{6}$")) {
-      throw new InvalidAccountFormatException(
-          "Sortcode must be exactly 6 numeric digits",
-          "sortcode", sortcode);
-    }
-  }
+## Inputs Considered
 
-  /**
-   * Validate account number format (BR-003).
-   * Must be exactly 8 numeric digits.
-   */
-  private void validateAccountNumber(String accountNumber) {
-    if (accountNumber == null || !accountNumber.matches("^\\d{8
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Spec Prompt
+
+Create implementation-ready specification from requirements.
+
+Inputs must include `intended-system.md` whe
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/openapi.yaml
+
+# openapi.yaml
+
+Status: DRY RUN
+
+Agent: OpenApiAgent
+Purpose: Generate OpenAPI starter contract from requirements and spec artifacts.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# OpenAPI Prompt
+
+Generate an OpenAPI contract skeleton based on requirements and specification.
+
+Inputs must i
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/code-review-checklist.md
+
+# code-review-checklist.md
+
+Status: DRY RUN
+
+Agent: CodeReviewAgent
+Purpose: Produce code review checklist and architecture conformance report skeleton.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Code Review Prompt
+
+Create code review checklist aligned with spec-driven implementation.
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/copilot-build-prompt.md
+
+# copilot-build-prompt.md
+
+Status: DRY RUN
+
+Agent: CopilotPromptAgent
+Purpose: Generate implementation prompts that can be pasted directly into GitHub Copilot.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Copilot Implementation Prompt
+
+Use generated artifacts to produce implementation co
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/mapping-matrix.md
+
+# mapping-matrix.md
+
+Status: DRY RUN
+
+Agent: MappingMatrixAgent
+Purpose: Create mapping and traceability matrices from requirements through implementation.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/modernization-report.md
+
+# modernization-report.md
+
+Status: DRY RUN
+
+Agent: ReportAgent
+Purpose: Compile a final modernization report that summarizes outputs and next actions.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Final Report Prompt
+
+Compile modernization report with:
+- Inputs reviewed
+- Artifacts genera
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/plan.md
+
+# plan.md
+
+Status: DRY RUN
+
+Agent: PlanAgent
+Purpose: Build phased modernization and delivery plan from the approved specification.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Plan Prompt
+
+Produce delivery plan aligned with spec and requirements.
+
+Inputs must include `intended-system.md
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+

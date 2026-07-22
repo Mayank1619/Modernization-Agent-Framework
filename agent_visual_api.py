@@ -331,7 +331,7 @@ def _run_dual_model_pipeline(
         secondary_client=secondary_client,
         extra_context={
             "system_intent_path": system_intent_path,
-            "demo_delay_seconds": 5,
+            "demo_delay_seconds": 2,
         },
         event_sink=event_sink,
         parallel=request_data.parallel_dual_run,

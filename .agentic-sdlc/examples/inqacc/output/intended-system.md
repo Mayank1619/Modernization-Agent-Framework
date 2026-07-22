@@ -1,316 +1,596 @@
-# Intended System Blueprint
+# intended-system.md
 
-**Document ID:** `intended-system.md`  
-**Pipeline:** mainframe_modernization  
-**Authority:** provided/system-intent.md + Legacy Analysis (INQACC.cbl, ACCDB2.cpy, ACCOUNT.cpy, INQACCCZ.cpy)  
-**Status:** Canonical target architecture for downstream requirement and spec generation  
-**Generated:** 2024
+Status: DRY RUN
 
----
+Agent: SystemIntentAgent
+Purpose: Define intended target system architecture and constraints before downstream requirement and spec generation.
 
-## 1. Feature and Modernization Objective
+## Pipeline Context
 
-**Primary Goal:**  
-Modernize the legacy INQACC CICS-DB2 account inquiry program into a cloud-ready, web-accessible application that preserves legacy observable behavior while enabling future integration with live mainframe systems.
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-**Scope of Modernization:**
-- Transform synchronous DB2 account lookup into a RESTful API endpoint
-- Replace CICS terminal interface with React web UI
-- Maintain composite-key lookup semantics (ACCOUNT_SORTCODE + ACCOUNT_NUMBER)
-- Enforce role-based access control at API boundary
-- Enable structured logging and request tracing for operational visibility
+## Inputs Considered
 
-**In-Scope Enhancements:**
-- Input validation at boundary (HTTP contract layer)
-- Standardized JSON error responses
-- Correlation ID propagation for distributed tracing
-- OAuth2 bearer token authentication
-- Mock data repository for POC (no live DB2/CICS connection)
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
 
----
+## Prompt Template
 
-## 2. Target Product Scope
+# System Intent Prompt
 
-**Application Name:** INQACC Modernized Account Inquiry  
-**Business Domain:** Retail Banking – Account Inquiry  
-**Primary User:** Bank employees performing account lookups  
-**Primary Actors:**
-- Authenticated bank employee (role: `ACCOUNT_INQUIRER` or above)
-- Backend account inquiry service
-- Mock repository (POC mode)
+Create `intended-system.md` as the canonical target-system blueprint used by all downstream agents.
 
-**User Stories (Summary):**
-- US-001: As an authenticated bank employee, I can query an account by sortcode and account number to retrieve full account details
-- US-002: As a bank employee, I receive clear error messages when sortcode or account number are invalid
-- US-003: As an operations engineer, I can observe request latency, error rates, and correlation IDs in structured logs
+Use legacy inputs plus any provided `system-intent.md` or `intended-system.md` notes.
+If user-provided intent exists, it overrides defaults.
 
-**Deliverables:**
-1. Spring Boot REST API (Java 21, Spring Boot 3.3.x)
-2. React web application (TypeScript 5.x, Vite 5.x)
-3. Mock repository adapter (in-memory or embedded database)
-4. OpenAPI 3.0.3 specification (auto-generated from Spring)
-5. Deployment artifacts (Docker image, Maven build)
-6. Operational dashboards and logging pipeline configuration
+Required sections (use this exact order):
+1. Feature and modernization objective
+2. Target product scope
+3. Architecture blueprint
+4. Technology stack and versions
+5. Security and compliance baseline
+6. API and integration constraints
+7. Data and mapping constraints
+8. Observability and operational requirements
+9. Delivery constraints and environments
+10. Out of scope
+11. Assumptions and open questions
 
----
+Section requirements:
+- Technology stack and versions must include backend, frontend, build tooling, runtime, and test frameworks.
+- Security section must include authN/authZ approach, transport security, input validation, error-handling policy, and secrets handling.
+- Constraints must preserve legacy observable behavior unless explicitly marked as modernization enhancement.
+- Mark each assumption with ID `ASM-xxx`.
+- Mark each open question with ID `Q-xxx`.
 
-## 3. Architecture Blueprint
+Output rules:
+- Output only markdown content for `intended-system.md`.
+- Do not invent legacy fields not present in source artifacts.
+- Keep language implementation-ready and specific.
 
-### 3.1 High-Level System Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Browser / Web Client                    │
-│              (React 18.x + TypeScript 5.x)                 │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTPS (TLS 1.2+)
-                       │ Bearer Token (Authorization header)
-                       │ Correlation ID (X-Correlation-ID header)
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│             Spring Boot 3.3.x REST API Gateway              │
-│                    (Java 21 Runtime)                        │
-├─────────────────────────────────────────────────────────────┤
-│ Spring Security OAuth2 Resource Server                      │
-│ ├─ Token Validation (JWT bearer token)                      │
-│ └─ Role-Based Authorization (ACCOUNT_INQUIRER role)        │
-├─────────────────────────────────────────────────────────────┤
-│ REST Controller Layer (@RestController)                     │
-│ └─ GET /v1/accounts/{sortcode}/{accountNumber}             │
-│    ├─ Path parameter validation                             │
-│    ├─ Request header extraction (X-Correlation-ID)          │
-│    └─ Response envelope (HTTP 200, 400, 401, 404, 500)     │
-├─────────────────────────────────────────────────────────────┤
-│ Service Layer (@Service)                                    │
-│ └─ AccountInquiryService                                    │
-│    ├─ Execute business rule BR-001 (composite key lookup)   │
-│    ├─ Coordinate repository access                          │
-│    ├─ Error translation to standardized JSON responses      │
-│    └─ Correlation ID propagation                            │
-├─────────────────────────────────────────────────────────────┤
-│ Repository / Data Access Layer (@Repository)                │
-│ └─ AccountRepository (Spring Data JPA or custom DAO)        │
-│    ├─ Mock persistence layer (H2 embedded or in-memory)     │
-│    ├─ Parameterized query: SELECT * FROM account           │
-│    │  WHERE sortcode = ? AND account_number = ?             │
-│    └─ Entity-to-DTO mapping                                 │
-├─────────────────────────────────────────────────────────────┤
-│ Cross-Cutting Concerns                                      │
-│ ├─ Structured Logging (SLF4J + Logback; JSON format)       │
-│ ├─ Correlation ID Management (MDC or request context)       │
-│ ├─ Exception Translation (@ExceptionHandler)                │
-│ └─ Input Validation (Bean Validation + custom validators)   │
-└─────────────────────────────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│            Mock Data Repository Layer                       │
-│        (H2 Embedded or In-Memory HashMap)                   │
-│ ├─ Seed data: 20+ pre-configured account records            │
-│ ├─ Account table schema matches ACCDB2.cpy definition       │
-│ ├─ Composite key index on (sortcode, account_number)        │
-│ └─ Zero network latency (POC mode)                          │
-└─────────────────────────────────────────────────────────────┘
-```
+## Input Previews
 
-### 3.2 Deployment Target
+## Source: output/intended-system.md
 
-**Runtime Environment:**
-- **Container Orchestration:** Docker (single container per environment)
-- **Cloud Platform:** AWS ECS / Kubernetes / On-Premises Docker host
-- **Application Server:** Embedded Tomcat (Spring Boot default)
-- **Port Exposure:** HTTPS 8443 (TLS termination at ingress) or 8080 (HTTP via load balancer proxy)
+# intended-system.md
 
-**Frontend Deployment:**
-- **Build Output:** Static files (HTML, JavaScript, CSS) via Vite 5.x build
-- **Hosting:** CloudFront / S3 (AWS) or static file server (on-premises)
-- **API Base URL:** Configurable via environment variable or config file
+Status: DRY RUN
 
----
+Agent: SystemIntentAgent
+Purpose: Define intended target system architecture and constraints before downstream requirement and spec generation.
 
-## 4. Technology Stack and Versions
+## Pipeline Context
 
-### 4.1 Backend Stack
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
 
-| Component | Version | Purpose | Rationale |
-|-----------|---------|---------|-----------|
-| **Java Runtime** | 21 (LTS) | Application runtime | LTS release; modern language features; production-grade stability |
-| **Spring Boot** | 3.3.x | REST API framework | Latest stable; Spring Security 6.x OAuth2 resource server; Spring Data JPA |
-| **Spring Framework** | 6.x (embedded in Boot) | Core IoC, AOP, web | Latest stable; comprehensive feature set |
-| **Spring Security** | 6.x | OAuth2 resource server, RBAC | Native JWT bearer token support; role-based method security |
-| **Spring Data JPA** | 3.x | Data access abstraction | Repository pattern; entity mapping; query DSL |
-| **Maven** | 3.9+ | Build tool | Reproducible builds; dependency management; plugins for code quality |
-| **H2 Database** | 2.x or latest | Mock persistence (POC) | Lightweight embedded; supports full SQL; in-memory or file-based modes |
-| **SLF4J** | 2.x | Logging facade | Standardized; integrates with Logback |
-| **Logback** | 1.4.x+ | Logging implementation | JSON output support; correlation ID MDC integration |
-| **Jackson** | 2.15.x+ | JSON serialization | Built into Spring Boot; customizable serialization |
-| **Bean Validation (Jakarta)** | 3.0.x | Input validation | JSR-380; @NotNull, @Pattern, @Size annotations |
-| **OpenAPI 3.0.3** | Generated from annotations | API contract | Spring Boot 3.3.x auto-generates from @RestController |
-| **Springdoc OpenAPI** | 2.x (optional) | OpenAPI documentation | Swagger UI auto-generation (if required) |
+## Inputs Considered
 
-### 4.2 Frontend Stack
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-in
 
-| Component | Version | Purpose | Rationale |
-|-----------|---------|---------|-----------|
-| **Node.js** | 20 LTS | JavaScript runtime | LTS release; npm package manager |
-| **React** | 18.x | UI framework | Industry standard; hooks-based stateful components; ecosystem maturity |
-| **TypeScript** | 5.x | Type safety | Compile-time error detection; improved developer experience; long-term maintainability |
-| **Vite** | 5.x | Build tool & dev server | Fast HMR; optimized production builds; native ES module support |
-| **Axios** | 1.6.x+ | HTTP client | Simple API; request/response interceptors for correlation ID propagation |
-| **React Query** (optional) | 5.x | Server state management | Automatic caching; request deduplication; background sync (if required) |
-| **React Testing Library** | 14.x+ | UI component testing | Best practices alignment; accessible component testing |
-| **Vitest** | 1.x+ | Unit test framework | Vite-native; Jest-compatible API; fast execution |
+[...trimmed for token budget...]
 
-### 4.3 DevOps & Infrastructure Stack
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
 
-| Component | Version | Purpose | Rationale |
-|-----------|---------|---------|-----------|
-| **Docker** | 20.x+ | Containerization | Consistent environment across dev/test/prod |
-| **Docker Compose** | 2.x+ | Local orchestration | Multi-container local development (backend + database) |
-| **Kubernetes** | 1.26+ (optional) | Container orchestration | Scalability; self-healing; rolling updates (future-proofing) |
-| **Git** | 2.40+ | Version control | Source code management; branching strategy |
-| **GitHub Actions** (or equivalent) | Native CI/CD | Automated build & test | Per-commit validation; integration test execution |
-| **TLS Certificate** | 1.2+ / 1.3 | Transport security | HTTPS enforcement; certificate management via cert-manager or cloud provider |
+## Source: provided/system-intent.md
 
-### 4.4 Security & Authentication Stack
+# System Intent Blueprint
 
-| Component | Version | Purpose | Rationale |
-|-----------|---------|---------|-----------|
-| **OAuth2 Authorization Server** | (External) | Bearer token issuance | Pre-configured; OIDC-compliant (e.g., Keycloak, Okta, AWS Cognito) |
-| **JWT (JSON Web Token)** | Standard (RFC 7519) | Token format | Self-contained claims; signature validation; no database lookup required |
-| **Spring Security OAuth2 Resource Server** | 6.x | Token validation | Native Spring support; validates JWT signature and expiration |
-| **TLS** | 1.2 or 1.3 | Transport security | HTTPS enforcement; certificate-based authentication |
-| **Secrets Manager** | (Cloud provider native) | Credentials storage | Environment variables injected at container runtime; no hardcoded secrets |
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
 
----
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
 
-## 5. Security and Compliance Baseline
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
 
-### 5.1 Authentication
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
 
-**Mechanism:** OAuth2 Bearer Token (JWT)
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
 
-**Flow:**
-1. User (bank employee) authenticates via external OAuth2 provider (e.g., corporate identity provider)
-2. Provider issues JWT bearer token with claims: `sub` (user ID), `aud` (audience), `scope` (e.g., `account:read`), `roles` (e.g., `["ACCOUNT_INQUIRER"]`)
-3. Client includes token in Authorization header: `Authorization: Bearer <jwt_token>`
-4. Spring Security OAuth2 Resource Server validates:
-   - Token signature (using provider's public key)
-   - Token expiration
-   - Issuer (iss claim)
-   - Audience (aud claim) matches application
-5. On success, authentication object is populated with user principal and authorities
+## Source: system-intent.md
 
-**Configuration (Spring Boot):**
-```yaml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://auth-server.internal/.well-known/openid-configuration
-          jwk-set-uri: https://auth-server.internal/keys
-```
+# System Intent Blueprint
 
-**Token Claims (Required):**
-- `sub`: Subject (user ID)
-- `aud`: Audience (must include application identifier)
-- `exp`: Expiration time (Unix timestamp)
-- `iat`: Issued at (Unix timestamp)
-- `iss`: Issuer URI
-- `scope`: Space-separated scopes (must include `account:read` or similar)
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
 
-### 5.2 Authorization
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
 
-**Model:** Role-Based Access Control (RBAC)
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
 
-**Roles:**
-- `ACCOUNT_INQUIRER`: Allows GET account inquiry endpoint
-- `ACCOUNT_ADMIN`: Implicit superuser (future use)
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
 
-**Enforcement:**
-```java
-@GetMapping("/v1/accounts/{sortcode}/{accountNumber}")
-@PreAuthorize("hasRole('ACCOUNT_INQUIRER')")
-public ResponseEntity<AccountResponseDto> getAccount(
-    @PathVariable String sortcode,
-    @PathVariable String accountNumber,
-    @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId
-) { ... }
-```
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
 
-**Authorization Failure Response:**
-- HTTP 403 Forbidden if user lacks required role
-- HTTP 401 Unauthorized if token is missing or invalid
+## Source: cobol/INQACC.cbl
 
-### 5.3 Transport Security
+CBL CICS('SP,EDF,DLI')
+       CBL SQL
+      ******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      ******************************************************************
 
-**Protocol:** HTTPS (TLS 1.2 minimum; TLS 1.3 preferred)
+      ******************************************************************
+      * This program takes an incoming account number. It then accesses
+      * the DB2 datastore & retrieves the associated account record/row
+      * matching on the account number & the account_type.
+      *
+      * Should there be any issues, the program will abend.
+      *
+      ******************************************************************
 
-**Certificate Management:**
-- Production: Enterprise certificate from trusted CA (not self-signed)
-- Non-prod: Self-signed certificate acceptable during development (with browser trust override)
-- Rotation: Automated via cloud provider (AWS ACM, Azure Key Vault) or cert-manager (Kubernetes)
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. INQACC.
+       AUTHOR. Jon Collett.
 
-**Spring Boot Configuration:**
-```yaml
-server:
-  ssl:
-    enabled: true
-    key-store: /etc/inqacc/keystore.p12
-    key-store-password: ${KEYSTORE_PASSWORD}  # Injected via environment variable
-    key-store-type: PKCS12
-    protocol: TLSv1.2
-```
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
 
-**HSTS (HTTP Strict Transport Security):**
-- Response header: `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- Enforcement via Spring Security:
-```java
-@Configuration
-public class SecurityConfig {
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.headers(headers -> headers.httpStrictTransportSecurity().maxAgeInSeconds(31536000));
-        return http.build();
-    }
-}
-```
+[...trimmed for token budget...]
 
-### 5.4 Input Validation
+END-IF.
 
-**Layer 1: HTTP Contract Validation (Spring MVC)**
-- Path parameter validation: `@PathVariable` with `@Pattern` annotation
-- Query parameter validation: `@RequestParam` with `@Size`, `@NotNull`
-- Request body validation: `@Valid` on DTO classes
+       GLAD999.
+           EXIT.
 
-**Example (Path Parameters):**
-```java
-@GetMapping("/v1/accounts/{sortcode}/{accountNumber}")
-public ResponseEntity<AccountResponseDto> getAccount(
-    @PathVariable
-    @Pattern(regexp = "^\\d{6}$", message = "Sortcode must be exactly 6 digits")
-    String sortcode,
-    
-    @PathVariable
-    @Pattern(regexp = "^\\d{8}$", message = "Account number must be exactly 8 digits")
-    String accountNumber
-) { ... }
-```
 
-**Layer 2: Business Logic Validation (Service)**
-- Null checks
-- Business rule enforcement (e.g., account active status)
-- Cross-field validation
+       POPULATE-TIME-DATE SECTION.
+       PTD010.
 
-**Layer 3: Rejection Policy**
-- Reject all invalid input immediately
-- Return HTTP 400 Bad Request with structured error detail
-- Include validation error message in error envelope (see §5.6)
+           EXEC CICS ASKTIME
+              ABSTIME(WS-U-TIME)
+           END-EXEC.
 
-### 5.5 Error Handling Policy
+           EXEC CICS FORMATTIME
+                     ABSTIME(WS-U-TIME)
+                     DDMMYYYY(WS-ORIG-DATE)
+                     TIME(WS-TIME-NOW)
+                     DATESEP
+           END-EXEC.
 
-**Principle:** Fail securely; never expose system internals in error responses
+       PTD999.
+           EXIT.
 
-**Error Categories:**
+## Source: copybooks/ACCDB2.cpy
 
-| Category | HTTP Status | Example
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+           EXEC SQL DECLARE ACCOUNT TABLE
+              ( ACCOUNT_EYECATCHER             CHAR(4),
+                ACCOUNT_CUSTOMER_NUMBER        CHAR(10),
+                ACCOUNT_SORTCODE               CHAR(6) NOT NULL,
+                ACCOUNT_NUMBER                 CHAR(8) NOT NULL,
+                ACCOUNT_TYPE                   CHAR(8),
+                ACCOUNT_INTEREST_RATE          DECIMAL(4, 2),
+                ACCOUNT_OPENED                 DATE,
+                ACCOUNT_OVERDRAFT_LIMIT        INTEGER,
+                ACCOUNT_LAST_STATEMENT         DATE,
+                ACCOUNT_NEXT_STATEMENT         DATE,
+                ACCOUNT_AVAILABLE_BALANCE      DECIMAL(10, 2),
+                ACCOUNT_ACTUAL_BALANCE         DECIMAL(10, 2) )
+           END-EXEC.
+
+## Source: copybooks/ACCOUNT.cpy
+
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+              03 ACCOUNT-DATA.
+                 05 ACCOUNT-EYE-CATCHER        PIC X(4).
+                 88 ACCOUNT-EYECATCHER-VALUE        VALUE 'ACCT'.
+                 05 ACCOUNT-CUST-NO            PIC 9(10).
+                 05 ACCOUNT-KEY.
+                    07 ACCOUNT-SORT-CODE       PIC 9(6).
+                    07 ACCOUNT-NUMBER          PIC 9(8).
+                 05 ACCOUNT-TYPE               PIC X(8).
+                 05 ACCOUNT-INTEREST-RATE      PIC 9(4)V99.
+                 05 ACCOUNT-OPENED             PIC 9(8).
+
+[...trimmed for token budget...]
+
+OUNT-NEXT-STMT-DATE     PIC 9(8).
+                 05 ACCOUNT-NEXT-STMT-GROUP
+                   REDEFINES ACCOUNT-NEXT-STMT-DATE.
+                    07 ACCOUNT-NEXT-STMT-DAY   PIC 99.
+                    07 ACCOUNT-NEXT-STMT-MONTH PIC 99.
+                    07 ACCOUNT-NEXT-STMT-YEAR  PIC 9999.
+                 05 ACCOUNT-AVAILABLE-BALANCE  PIC S9(10)V99.
+                 05 ACCOUNT-ACTUAL-BALANCE     PIC S9(10)V99.
+
+## Source: copybooks/INQACCCZ.cpy
+
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+          03 NUMBER-OF-ACCOUNTS        PIC S9(8) BINARY.
+          03 CUSTOMER-NUMBER           PIC 9(10).
+          03 COMM-SUCCESS              PIC X.
+          03 COMM-FAIL-CODE            PIC X.
+          03 CUSTOMER-FOUND            PIC X.
+          03 COMM-PCB-POINTER          PIC X(4).
+          03 ACCOUNT-DETAILS OCCURS 1 TO 20 DEPENDING ON
+              NUMBER-OF-ACCOUNTS.
+            05 COMM-EYE                  PIC X(4).
+            05 COMM-CUSTNO               PIC X(10).
+            05 COMM-SCODE                PIC X(6).
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/business-rules.md
+
+# business-rules.md
+
+Status: DRY RUN
+
+Agent: BusinessRulesAgent
+Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+#
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/requirements.md
+
+# requirements.md
+
+Status: DRY RUN
+
+Agent: RequirementsAgent
+Purpose: Produce structured requirements from business rules and legacy findings.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Requireme
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/spec.md
+
+# spec.md
+
+Status: DRY RUN
+
+Agent: SpecAgent
+Purpose: Generate implementation-ready functional and technical specification.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Spec Prompt
+
+Create implementation-ready specification from requirements.
+
+Inputs must include `intended-system.md` whe
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/openapi.yaml
+
+# openapi.yaml
+
+Status: DRY RUN
+
+Agent: OpenApiAgent
+Purpose: Generate OpenAPI starter contract from requirements and spec artifacts.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# OpenAPI Prompt
+
+Generate an OpenAPI contract skeleton based on requirements and specification.
+
+Inputs must i
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/code-review-checklist.md
+
+# code-review-checklist.md
+
+Status: DRY RUN
+
+Agent: CodeReviewAgent
+Purpose: Produce code review checklist and architecture conformance report skeleton.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Code Review Prompt
+
+Create code review checklist aligned with spec-driven implementation.
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+

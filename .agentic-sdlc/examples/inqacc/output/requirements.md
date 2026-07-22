@@ -1,344 +1,584 @@
-# Requirements Document for INQACC Modernization
-
-**Document ID:** `requirements.md`  
-**Pipeline:** mainframe_modernization  
-**Authority:** provided/system-intent.md + output/intended-system.md + Legacy Analysis (INQACC.cbl, ACCDB2.cpy, ACCOUNT.cpy, INQACCCZ.cpy)  
-**Status:** Implementation-ready requirements  
-**Generated:** 2024  
-**Target Stack:** Java 21 + Spring Boot 3.3.x | React 18.x + TypeScript 5.x + Vite 5.x | Mock Repository (POC)
-
----
-
-## 1. Scope
-
-### 1.1 In-Scope
-
-- Modernize legacy INQACC CICS-DB2 account inquiry program into a cloud-ready REST API and web UI.
-- Preserve composite-key lookup semantics (ACCOUNT_SORTCODE + ACCOUNT_NUMBER).
-- Implement OAuth2 role-based access control at API boundary.
-- Replace CICS terminal interface with React 18.x web application.
-- Replace DB2 persistence with mock repository for POC (no live mainframe connectivity).
-- Enable structured JSON logging with correlation ID propagation.
-- Support OpenAPI 3.0.3 contract-first API design.
-- Provide standardized JSON error responses with correlation ID.
-- Implement input validation at HTTP boundary with explicit error categorization.
-
-### 1.2 Out-of-Scope
-
-- Live CICS transaction server integration.
-- Live DB2 mainframe database connectivity.
-- Multi-step wizard flows beyond account inquiry.
-- Account modification or account creation.
-- Real-time mainframe system monitoring.
-- Batch account inquiry or multi-account lookups.
-- Account statement generation or history retrieval.
-- Production mainframe system integration in POC phase.
-
-### 1.3 Delivery Constraints
-
-- Target stack: Java 21, Spring Boot 3.3.x, Maven 3.9+, React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS.
-- Security baseline: OAuth2 bearer tokens, TLS 1.2+, environment-based secrets management, no hardcoded credentials.
-- Backward compatibility: preserve legacy observable behavior as default path.
-- Any enhancement beyond legacy behavior must be explicitly marked and toggleable.
-- Controllers remain thin; all business logic in service layer.
-- No production mainframe system integration in POC mode.
+# requirements.md
+
+Status: DRY RUN
+
+Agent: RequirementsAgent
+Purpose: Produce structured requirements from business rules and legacy findings.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Requirements Prompt
+
+Convert business rules and analysis into clear functional and non-functional requirements.
+
+Inputs must include `intended-system.md` when available.
+All requirements must align with target stack, versions, and security baseline from intended system.
+
+Produce:
+- Scope
+- Functional requirements with IDs
+- Non-functional requirements
+- Constraints and assumptions
+- Acceptance criteria
+
+Minimum detail expectations:
+- Use IDs `FR-xxx`, `NFR-xxx`, `AC-xxx`, and `ASM-xxx`.
+- Each functional requirement references at least one source rule or legacy behavior.
+- Include explicit security, observability, and environment requirements.
+- Separate preserved legacy behavior from modernization enhancements.
+
+
+## Input Previews
+
+## Source: output/intended-system.md
+
+# intended-system.md
+
+Status: DRY RUN
+
+Agent: SystemIntentAgent
+Purpose: Define intended target system architecture and constraints before downstream requirement and spec generation.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-in
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: provided/system-intent.md
+
+# System Intent Blueprint
+
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
+
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
+
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
+
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
+
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
+
+## Source: system-intent.md
+
+# System Intent Blueprint
+
+## Product goal
+Modernize INQACC account inquiry into a web-accessible application with a Spring Boot backend and React frontend while preserving legacy observable behavior.
+
+## Target stack
+- Backend: Java 21, Spring Boot 3.3.x, Maven 3.9+
+- Frontend: React 18.x, TypeScript 5.x, Vite 5.x, Node.js 20 LTS
+- API: REST over HTTPS, OpenAPI 3.0.3
+- Persistence for POC: Mock repository (no live CICS or DB2 connectivity)
+
+## Security baseline
+- Authentication: OAuth2 resource server with JWT bearer tokens
+- Authorization: Role-based access control for account inquiry endpoints
+- Transport: TLS 1.2+
+- Input validation: strict path/query validation and standardized error responses
+- Secrets handling: environment variables or secret manager, never in source control
+
+## Operational baseline
+- Logging: structured JSON logs with correlation ID per request
+- Metrics: request latency, error rate, downstream adapter status
+- Tracing: distributed tracing ready (OpenTelemetry)
+
+## Delivery constraints
+- Preserve legacy behavior as default path
+- Any enhancement must be explicitly marked and toggleable
+- Controllers remain thin, business logic in services
+- Do not connect to real mainframe systems in POC mode
+
+## Source: cobol/INQACC.cbl
+
+CBL CICS('SP,EDF,DLI')
+       CBL SQL
+      ******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      ******************************************************************
+
+      ******************************************************************
+      * This program takes an incoming account number. It then accesses
+      * the DB2 datastore & retrieves the associated account record/row
+      * matching on the account number & the account_type.
+      *
+      * Should there be any issues, the program will abend.
+      *
+      ******************************************************************
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. INQACC.
+       AUTHOR. Jon Collett.
+
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+
+[...trimmed for token budget...]
+
+END-IF.
+
+       GLAD999.
+           EXIT.
+
+
+       POPULATE-TIME-DATE SECTION.
+       PTD010.
+
+           EXEC CICS ASKTIME
+              ABSTIME(WS-U-TIME)
+           END-EXEC.
+
+           EXEC CICS FORMATTIME
+                     ABSTIME(WS-U-TIME)
+                     DDMMYYYY(WS-ORIG-DATE)
+                     TIME(WS-TIME-NOW)
+                     DATESEP
+           END-EXEC.
+
+       PTD999.
+           EXIT.
+
+## Source: copybooks/ACCDB2.cpy
+
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+           EXEC SQL DECLARE ACCOUNT TABLE
+              ( ACCOUNT_EYECATCHER             CHAR(4),
+                ACCOUNT_CUSTOMER_NUMBER        CHAR(10),
+                ACCOUNT_SORTCODE               CHAR(6) NOT NULL,
+                ACCOUNT_NUMBER                 CHAR(8) NOT NULL,
+                ACCOUNT_TYPE                   CHAR(8),
+                ACCOUNT_INTEREST_RATE          DECIMAL(4, 2),
+                ACCOUNT_OPENED                 DATE,
+                ACCOUNT_OVERDRAFT_LIMIT        INTEGER,
+                ACCOUNT_LAST_STATEMENT         DATE,
+                ACCOUNT_NEXT_STATEMENT         DATE,
+                ACCOUNT_AVAILABLE_BALANCE      DECIMAL(10, 2),
+                ACCOUNT_ACTUAL_BALANCE         DECIMAL(10, 2) )
+           END-EXEC.
+
+## Source: copybooks/ACCOUNT.cpy
+
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+              03 ACCOUNT-DATA.
+                 05 ACCOUNT-EYE-CATCHER        PIC X(4).
+                 88 ACCOUNT-EYECATCHER-VALUE        VALUE 'ACCT'.
+                 05 ACCOUNT-CUST-NO            PIC 9(10).
+                 05 ACCOUNT-KEY.
+                    07 ACCOUNT-SORT-CODE       PIC 9(6).
+                    07 ACCOUNT-NUMBER          PIC 9(8).
+                 05 ACCOUNT-TYPE               PIC X(8).
+                 05 ACCOUNT-INTEREST-RATE      PIC 9(4)V99.
+                 05 ACCOUNT-OPENED             PIC 9(8).
+
+[...trimmed for token budget...]
+
+OUNT-NEXT-STMT-DATE     PIC 9(8).
+                 05 ACCOUNT-NEXT-STMT-GROUP
+                   REDEFINES ACCOUNT-NEXT-STMT-DATE.
+                    07 ACCOUNT-NEXT-STMT-DAY   PIC 99.
+                    07 ACCOUNT-NEXT-STMT-MONTH PIC 99.
+                    07 ACCOUNT-NEXT-STMT-YEAR  PIC 9999.
+                 05 ACCOUNT-AVAILABLE-BALANCE  PIC S9(10)V99.
+                 05 ACCOUNT-ACTUAL-BALANCE     PIC S9(10)V99.
+
+## Source: copybooks/INQACCCZ.cpy
+
+******************************************************************
+      *                                                                *
+      *  Copyright IBM Corp. 2023                                      *
+      *                                                                *
+      *                                                                *
+      ******************************************************************
+          03 NUMBER-OF-ACCOUNTS        PIC S9(8) BINARY.
+          03 CUSTOMER-NUMBER           PIC 9(10).
+          03 COMM-SUCCESS              PIC X.
+          03 COMM-FAIL-CODE            PIC X.
+          03 CUSTOMER-FOUND            PIC X.
+          03 COMM-PCB-POINTER          PIC X(4).
+          03 ACCOUNT-DETAILS OCCURS 1 TO 20 DEPENDING ON
+              NUMBER-OF-ACCOUNTS.
+            05 COMM-EYE                  PIC X(4).
+            05 COMM-CUSTNO               PIC X(10).
+            05 COMM-SCODE                PIC X(6).
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/business-rules.md
+
+# business-rules.md
+
+Status: DRY RUN
+
+Agent: BusinessRulesAgent
+Purpose: Extract and normalize business rules from legacy analysis and source artifacts.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+#
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/requirements.md
+
+# requirements.md
+
+Status: DRY RUN
+
+Agent: RequirementsAgent
+Purpose: Produce structured requirements from business rules and legacy findings.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- cobol/INQACC.cbl
+- copybooks/ACCDB2.cpy
+- copybooks/ACCOUNT.cpy
+- copybooks/INQACCCZ.cpy
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Requireme
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/spec.md
+
+# spec.md
+
+Status: DRY RUN
+
+Agent: SpecAgent
+Purpose: Generate implementation-ready functional and technical specification.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Spec Prompt
+
+Create implementation-ready specification from requirements.
+
+Inputs must include `intended-system.md` whe
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/openapi.yaml
+
+# openapi.yaml
+
+Status: DRY RUN
+
+Agent: OpenApiAgent
+Purpose: Generate OpenAPI starter contract from requirements and spec artifacts.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# OpenAPI Prompt
+
+Generate an OpenAPI contract skeleton based on requirements and specification.
+
+Inputs must i
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
+
+## Source: output/code-review-checklist.md
+
+# code-review-checklist.md
+
+Status: DRY RUN
+
+Agent: CodeReviewAgent
+Purpose: Produce code review checklist and architecture conformance report skeleton.
+
+## Pipeline Context
+
+- Pipeline: mainframe_modernization
+- Input Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/legacy
+- Output Root: C:/vscode/AgentsMainframeModernization/.agentic-sdlc/examples/inqacc/output_primary
+
+## Inputs Considered
+
+- system-intent.md
+- output/business-rules.md
+- output/code-review-checklist.md
+- output/copilot-build-prompt.md
+- output/intended-system.md
+- output/mapping-matrix.md
+- output/modernization-report.md
+- output/plan.md
+- output/program-analysis.md
+- output/qa-review-checklist.md
+- output/requirements.md
+- output/spec.md
+- output/tasks.md
+- output/test-spec.md
+- output/traceability-matrix.md
+- output/openapi.yaml
+- provided/system-intent.md
+
+## Prompt Template
+
+# Code Review Prompt
+
+Create code review checklist aligned with spec-driven implementation.
+
+[...trimmed for token budget...]
+
+H PIC 99.
+              07 COMM-LAST-STMT-YEAR PIC 9999.
+            05 COMM-NEXT-STMT-DT         PIC 9(8).
+            05 COMM-NEXT-STMT-GROUP REDEFINES COMM-NEXT-STMT-DT.
+              07 COMM-NEXT-STMT-DAY PIC 99.
+              07 COMM-NEXT-STMT-MONTH PIC 99.
+              07 COMM-NEXT-STMT-YEAR PIC 9999.
+            05 COMM-AVAIL-BAL            PIC S9(10)V99.
+            05 COMM-ACTUAL-BAL           PIC S9(10)V99.
 
-### 1.4 Assumptions
-
-**ASM-001:** OAuth2 authorization server is available and pre-configured with `ACCOUNT_INQUIRER` role definitions.
-
-**ASM-002:** Mock repository implementation uses in-memory storage or lightweight embedded database (H2) for POC; no schema migration tooling required.
-
-**ASM-003:** All account records in mock repository conform to field definitions and validation rules in ACCDB2.cpy and ACCOUNT.cpy.
-
-**ASM-004:** Spring Security 6.x+ OAuth2 Resource Server is the authentication/authorization framework.
-
-**ASM-005:** React build toolchain (Node.js 20 LTS, Vite 5.x, npm 10+) is pre-installed in CI/CD environment.
-
-**ASM-006:** API gateway or proxy enforces TLS 1.2+ and rate limiting; backend service assumes authenticated, encrypted inbound traffic.
-
-**ASM-007:** Correlation ID is generated by backend service if not provided in request header.
-
-**ASM-008:** Mock data repository contains representative account records matching copybook structures; no schema sync with real DB2 required.
-
----
-
-## 2. Functional Requirements
-
-### FR-001: Account Record Retrieval
-
-**Requirement ID:** `FR-001`  
-**Category:** Core Business Logic  
-**Source:** BR-001, INQACC.cbl (embedded SQL SELECT), ACCDB2.cpy (table schema), program-analysis.md (§2.2)  
-**Affected Components:** AccountInquiryService, AccountRepository, AccountInquiryController
-
-**Description:** The system must retrieve account records from the DB2 datastore based on the provided account number and account type.  
-**Inputs:** 
-- Account Number (HV-ACCOUNT-ACC-NO)
-- Account Type (HV-ACCOUNT-ACC-TYPE)  
-**Outputs:** 
-- Account details including:
-  - Account Eyecatcher (HV-ACCOUNT-EYECATCHER)
-  - Customer Number (HV-ACCOUNT-CUST-NO)
-  - Sort Code (HV-ACCOUNT-SORTCODE)
-  - Interest Rate (HV-ACCOUNT-INT-RATE)
-  - Opened Date (HV-ACCOUNT-OPENED)
-  - Overdraft Limit (HV-ACCOUNT-OVERDRAFT-LIM)
-  - Last Statement Date (HV-ACCOUNT-LAST-STMT)
-  - Next Statement Date (HV-ACCOUNT-NEXT-STMT)
-  - Available Balance (HV-ACCOUNT-AVAIL-BAL)
-  - Actual Balance (HV-ACCOUNT-ACTUAL-BAL)  
-**Error Conditions:** If the account number or account type is invalid, the system must return an error response indicating the failure to find the account.
-
-**Preconditions:**
-- User has been authenticated via OAuth2 bearer token.
-- User has been authorized with role `ACCOUNT_INQUIRER` or above.
-- Sortcode and account number have been validated per FR-002.
-- Mock repository or DB2 adapter is available and accessible.
-
-**Processing Steps:**
-1. Extract `sortcode` and `accountNumber` from HTTP request path parameters.
-2. Validate format and content per FR-002.
-3. Propagate correlation ID to repository call.
-4. Execute parameterized SELECT query: `SELECT * FROM ACCOUNT WHERE ACCOUNT_SORTCODE = ? AND ACCOUNT_NUMBER = ?`.
-5. Map DB2/repository row to AccountResponseDto.
-6. Return HTTP 200 with account record JSON if found.
-7. Return HTTP 404 if no matching record exists.
-
-**Postconditions:**
-- Account record (if found) contains all 12 fields populated per copybook schema.
-- Correlation ID is attached to response header and logged.
-- Request latency is recorded in structured metrics.
-- No plaintext sensitive data appears in logs beyond customer number (PII handling per security policy).
-
-**Acceptance Criteria:**
-- `AC-FR001-001`: Service returns single account record matching composite key within 100ms (mock repository).
-- `AC-FR001-002`: Service returns HTTP 404 with error envelope when no record found.
-- `AC-FR001-003`: Service propagates correlation ID to repository layer and includes in response header `X-Correlation-ID`.
-- `AC-FR001-004`: Service maps all 12 DB2/copybook fields to JSON response without field omission or data loss.
-
-**Error Paths:**
-- Repository throws DataAccessException → FR-005 (standardized error response).
-- Composite key constraint violated (logic error, should not occur) → FR-005 (HTTP 500 Internal Server Error).
-
----
-
-### FR-002: Validate Sortcode and Account Number Format
-
-**Requirement ID:** `FR-002`  
-**Category:** Input Validation  
-**Source:** BR-001 (input validation), ACCOUNT.cpy (field definitions: ACCOUNT-SORT-CODE PIC 9(6), ACCOUNT-NUMBER PIC 9(8))  
-**Affected Components:** AccountInquiryController, InputValidator, AccountInquiryService
-
-**Description:** The system shall validate sortcode and account number at the HTTP boundary before executing account lookup, rejecting invalid formats with explicit error messages.
-
-**Validation Rules:**
-
-| Field | Rule | Format | Min/Max | Example |
-|-------|------|--------|---------|---------|
-| `sortcode` | Numeric, no leading zeros allowed (business constraint) | `^\d{6}$` | Exactly 6 digits | `123456` |
-| `accountNumber` | Numeric, exactly 8 digits | `^\d{8}$` | Exactly 8 digits | `98765432` |
-
-**Preconditions:**
-- HTTP request is received with path parameters `/accounts/{sortcode}/{accountNumber}`.
-
-**Processing Steps:**
-1. Extract `sortcode` and `accountNumber` from path parameters.
-2. Apply regex pattern validation: sortcode matches `^\d{6}$`, account number matches `^\d{8}$`.
-3. If either fails validation, return HTTP 400 Bad Request with error envelope.
-4. Include validation error detail in response body.
-
-**Postconditions:**
-- Valid inputs pass through to FR-001 account lookup.
-- Invalid inputs are rejected before database query is executed.
-- Correlation ID is included in error response.
-- Request is logged with validation failure detail (without repeating invalid value in log body).
-
-**Acceptance Criteria:**
-- `AC-FR002-001`: Sortcode with non-numeric characters (e.g., `12345A`) returns HTTP 400 with error code `INVALID_SORTCODE_FORMAT`.
-- `AC-FR002-002`: Sortcode with length ≠ 6 (e.g., `12345` or `1234567`) returns HTTP 400.
-- `AC-FR002-003`: Account number with non-numeric characters (e.g., `1234567A`) returns HTTP 400 with error code `INVALID_ACCOUNT_NUMBER_FORMAT`.
-- `AC-FR002-004`: Account number with length ≠ 8 returns HTTP 400.
-- `AC-FR002-005`: Valid sortcode and account number pass validation and proceed to FR-001.
-- `AC-FR002-006`: Validation error response includes `correlationId`, `errorCode`, and `errorMessage` fields (see FR-005).
-
-**Error Paths:**
-- See FR-005 for standardized error response envelope.
-
----
-
-### FR-003: Return Standardized Account Record JSON
-
-**Requirement ID:** `FR-003`  
-**Category:** API Response Contract  
-**Source:** spec.md (§3 Account Response Object), ACCOUNT.cpy (field definitions), openapi.yaml (Account schema definition)  
-**Affected Components:** AccountResponseDto, AccountInquiryController, AccountInquiryService
-
-**Description:** The system shall return account records in a standardized JSON format matching the OpenAPI 3.0.3 specification, with all 12 copybook fields mapped to JSON properties.
-
-**Response Schema:**
-
-```json
-{
-  "eyecatcher": "ACCT",
-  "customerNumber": "1234567890",
-  "sortcode": "123456",
-  "accountNumber": "98765432",
-  "accountType": "SAVINGS",
-  "interestRate": 2.50,
-  "accountOpened": "2020-01-15",
-  "overdraftLimit": 5000,
-  "lastStatementDate": "2024-01-31",
-  "nextStatementDate": "2024-02-28",
-  "availableBalance": 15750.50,
-  "actualBalance": 15750.50
-}
-```
-
-**Field Mapping (COBOL → JSON):**
-
-| Copybook Field | DB2 Column | JSON Property | Type | Constraints |
-|---|---|---|---|---|
-| ACCOUNT-EYE-CATCHER | ACCOUNT_EYECATCHER | `eyecatcher` | string | Length 4, value: `ACCT` |
-| ACCOUNT-CUST-NO | ACCOUNT_CUSTOMER_NUMBER | `customerNumber` | string | Length 10, numeric |
-| ACCOUNT-SORT-CODE | ACCOUNT_SORTCODE | `sortcode` | string | Length 6, numeric, NOT NULL |
-| ACCOUNT-NUMBER | ACCOUNT_NUMBER | `accountNumber` | string | Length 8, numeric, NOT NULL |
-| ACCOUNT-TYPE | ACCOUNT_TYPE | `accountType` | string | Length 8, examples: SAVINGS, CHECKING |
-| ACCOUNT-INTEREST-RATE | ACCOUNT_INTEREST_RATE | `interestRate` | number (decimal) | Precision 4, scale 2 |
-| ACCOUNT-OPENED | ACCOUNT_OPENED | `accountOpened` | string (ISO 8601 date) | Format: YYYY-MM-DD |
-| ACCOUNT-OVERDRAFT-LIMIT | ACCOUNT_OVERDRAFT_LIMIT | `overdraftLimit` | integer | Range: 0 to 2,147,483,647 |
-| ACCOUNT-LAST-STMT-DATE | ACCOUNT_LAST_STATEMENT | `lastStatementDate` | string (ISO 8601 date) | Format: YYYY-MM-DD |
-| ACCOUNT-NEXT-STMT-DATE | ACCOUNT_NEXT_STATEMENT | `nextStatementDate` | string (ISO 8601 date) | Format: YYYY-MM-DD |
-| ACCOUNT-AVAILABLE-BALANCE | ACCOUNT_AVAILABLE_BALANCE | `availableBalance` | number (decimal) | Precision 10, scale 2, signed |
-| ACCOUNT-ACTUAL-BALANCE | ACCOUNT_ACTUAL_BALANCE | `actualBalance` | number (decimal) | Precision 10, scale 2, signed |
-
-**Preconditions:**
-- Account record has been successfully retrieved from repository per FR-001.
-- All 12 fields are populated from source (no null fields except where explicitly documented as optional).
-
-**Processing Steps:**
-1. Instantiate AccountResponseDto from retrieved account entity.
-2. Map each entity field to corresponding DTO property using conversion rules (dates, decimals, etc.).
-3. Serialize DTO to JSON using Spring's default Jackson ObjectMapper or explicitly configured converter.
-4. Return JSON with Content-Type header: `application/json; charset=utf-8`.
-
-**Postconditions:**
-- Response JSON is valid per OpenAPI 3.0.3 Account schema.
-- All 12 fields are present in response (no field omission).
-- Date fields are in ISO 8601 format (YYYY-MM-DD).
-- Decimal fields preserve precision (2 fractional digits for rates and balances).
-- Eyecatcher field always contains value `ACCT` (inherited from legacy requirement).
-
-**Acceptance Criteria:**
-- `AC-FR003-001`: Response JSON includes all 12 fields from copybook schema.
-- `AC-FR003-002`: Date fields (accountOpened, lastStatementDate, nextStatementDate) are formatted as ISO 8601 strings (YYYY-MM-DD).
-- `AC-FR003-003`: Decimal fields (interestRate, availableBalance, actualBalance) include 2 fractional digits (e.g., `2.50`, `15750.50`).
-- `AC-FR003-004`: Customer number field preserves 10-digit zero-padded format (e.g., `1234567890`).
-- `AC-FR003-005`: Response matches OpenAPI 3.0.3 Account schema (no extra fields, all required fields present).
-- `AC-FR003-006`: JSON serialization is deterministic (field ordering consistent across requests).
-
----
-
-### FR-004: Authenticate Requests with OAuth2 Bearer Tokens
-
-**Requirement ID:** `FR-004`  
-**Category:** Security – Authentication  
-**Source:** system-intent.md (security baseline: OAuth2 resource server with JWT bearer tokens), intended-system.md (§3.4 Security Architecture)  
-**Affected Components:** OAuth2ResourceServerConfig, AccountInquiryController, SecurityContext
-
-**Description:** The system shall authenticate all account inquiry requests using OAuth2 bearer tokens, rejecting requests without valid tokens with HTTP 401 Unauthorized.
-
-**Authentication Mechanism:**
-
-| Aspect | Specification |
-|--------|---|
-| **Token Type** | JWT (JSON Web Token) bearer token |
-| **Delivery** | HTTP Authorization header: `Authorization: Bearer <token>` |
-| **Token Source** | Pre-configured OAuth2 authorization server (external system, not implemented in POC) |
-| **Token Validation** | Spring Security OAuth2 Resource Server validates JWT signature, expiration, and claims |
-| **Scope/Claim** | Token must include claim or scope: `account:read` (or equivalent) |
-
-**Preconditions:**
-- OAuth2 authorization server is configured and accessible.
-- Authorization server public key/JWKS endpoint is known to Spring Boot application.
-- Request includes Authorization header with Bearer token.
-
-**Processing Steps:**
-1. Spring Security intercepts request before controller execution.
-2. Extract Bearer token from Authorization header.
-3. Validate JWT signature using authorization server public key.
-4. Verify token expiration timestamp.
-5. Check for required claims/scopes (e.g., `account:read`).
-6. If token is valid, set SecurityContext with authentication principal; proceed to controller.
-7. If token is missing, invalid, or expired, return HTTP 401 Unauthorized.
-
-**Postconditions:**
-- Valid token results in authenticated request reaching controller.
-- SecurityContext contains authenticated principal (user identity, roles).
-- Invalid/missing token is rejected before business logic execution.
-- Correlation ID is included in error response.
-
-**Acceptance Criteria:**
-- `AC-FR004-001`: Request with valid JWT bearer token succeeds (HTTP 200 if account found).
-- `AC-FR004-002`: Request without Authorization header returns HTTP 401 with error code `MISSING_AUTHENTICATION`.
-- `AC-FR004-003`: Request with invalid token (malformed, wrong signature) returns HTTP 401 with error code `INVALID_TOKEN`.
-- `AC-FR004-004`: Request with expired token returns HTTP 401 with error code `TOKEN_EXPIRED`.
-- `AC-FR004-005`: SecurityContext is populated with authenticated user identity and roles for downstream authorization checks.
-
-**Error Paths:**
-- See FR-005 for HTTP 401 error envelope.
-
----
-
-### FR-005: Return Standardized Error Responses with Correlation ID
-
-**Requirement ID:** `FR-005`  
-**Category:** Error Handling  
-**Source:** system-intent.md (standardized error responses), spec.md (§5 Error Response Object), openapi.yaml (error schemas)  
-**Affected Components:** GlobalExceptionHandler, ErrorResponseDto, AccountInquiryController
-
-**Description:** The system shall return standardized JSON error responses for all error conditions, including correlation ID for request tracing and explicit error codes for programmatic client handling.
-
-**Error Response Schema:**
-
-```json
-{
-  "correlationId": "string",
-  "errorCode": "string",
-  "errorMessage": "string"
-}
-```
-
-**Preconditions:**
-- An error condition has occurred during processing.
-
-**Processing Steps:**
-1. Capture the correlation ID from the request or generate a new one.
-2. Construct the error response object with the appropriate error code and message.
-3. Return the error response with HTTP status code corresponding to the error condition.
-
-**Postconditions:**
-- The error response is logged for auditing purposes.
-- The response includes the correlation ID for tracing.
-
-**Acceptance Criteria:**
-- `AC-FR005-001`: All error responses include `correlationId`, `errorCode`, and `errorMessage`.
-- `AC-FR005-002`: Error responses are returned with appropriate HTTP status codes based on the error condition.
-
-**Error Paths:**
-- Handle all exceptions and return standardized error responses as defined.
-
----
-
-## Non-Functional Requirements
-
-### NFR-001: Security Compliance
-**Description:** The system must implement OAuth2 authentication and JWT bearer tokens for secure access to account inquiry endpoints.  
-**Security Standards:** TLS 1.2+ must be enforced for all communications.
-
-### NFR-002: Observability
-**Description:** The system must implement structured logging with correlation IDs and support distributed tracing using OpenTelemetry.  
-**Metrics:** The system must collect metrics for request latency and error rates.
-
-### NFR-003: Performance
-**Description:** The system must respond to account inquiry requests within 2 seconds under normal load conditions.

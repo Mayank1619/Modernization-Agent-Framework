@@ -422,7 +422,7 @@ def _run_dual_model(
         output_root=output_root,
         primary_client=None if args.demo_mode else llm_client,
         secondary_client=claude_client,
-        extra_context={"system_intent_path": system_intent_path, "demo_delay_seconds": 5},
+        extra_context={"system_intent_path": system_intent_path, "demo_delay_seconds": 2},
         parallel=args.parallel_dual_run,
         primary_dry_run=args.demo_mode,
         secondary_dry_run=args.demo_mode,

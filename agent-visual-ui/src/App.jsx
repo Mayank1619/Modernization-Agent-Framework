@@ -454,7 +454,7 @@ function RunModeHints({ form }) {
     if (form.use_ai && form.compare_with_claude) {
         return (
             <p className="hint">
-                Dual mode requires both primary AI key and Claude key. Missing keys will fail fast.
+                Dual-pipeline mode runs a primary generation path and an independent verification path, then merges results to improve confidence and reduce single-model bias. Both keys are required.
             </p>
         );
     }
@@ -477,17 +477,17 @@ function ExecutionSignalPanel({
     return (
         <section className="panel flow-panel">
             <div className="flow-head">
-                <h2>Execution Signal</h2>
+                <h2>Pipeline Execution View</h2>
                 <span className={`status-pill ${runSignal}`}>{run?.status || "idle"}</span>
             </div>
             {showDualFlow ? (
                 <>
                     <p className="flow-caption">
-                        Parallel live workflows. OpenAI and Claude run side-by-side, then merge.
+                        Dual-pipeline verification: OpenAI generates first-pass artifacts, Claude independently validates them, then both outputs are reconciled into a final result.
                     </p>
                     <div className="parallel-execution" role="img" aria-label="Parallel OpenAI and Claude execution workflows with merge">
                         <section className="workflow-column">
-                            <h3>OpenAI Workflow</h3>
+                            <h3>Primary Pipeline (OpenAI)</h3>
                             <p className="workflow-meta">
                                 {primaryFlow.runningAgent
                                     ? `Running: ${primaryFlow.runningAgent}`
@@ -506,15 +506,11 @@ function ExecutionSignalPanel({
                                         ) : null}
                                     </div>
                                 ))}
-                                <div
-                                    className={`exec-pulse vertical ${run?.status === "running" ? "moving" : ""}`}
-                                    style={{ "--exec-step-y": String(primaryFlow.pulseIndex) }}
-                                />
                             </div>
                         </section>
 
                         <section className="workflow-column">
-                            <h3>Claude Workflow</h3>
+                            <h3>Verification Pipeline (Claude)</h3>
                             <p className="workflow-meta">
                                 {claudeFlow.runningAgent
                                     ? `Running: ${claudeFlow.runningAgent}`
@@ -533,16 +529,12 @@ function ExecutionSignalPanel({
                                         ) : null}
                                     </div>
                                 ))}
-                                <div
-                                    className={`exec-pulse vertical ${run?.status === "running" ? "moving" : ""}`}
-                                    style={{ "--exec-step-y": String(claudeFlow.pulseIndex) }}
-                                />
                             </div>
                         </section>
                     </div>
 
-                    <div className={`merge-stage ${dualFlow.status.merge}`}>
-                        <h3>Merge + Compare</h3>
+                    <div className={`merge-stage in-pipeline ${dualFlow.status.merge}`}>
+                        <h3>Reconcile + Finalize</h3>
                         <p>Status: {dualFlow.status.merge}</p>
                         <p>Artifacts Compared: {dualFlow.comparedArtifacts || "-"}</p>
                     </div>
@@ -656,6 +648,7 @@ export default function App() {
     const [theme, setTheme] = useState(
         () => window.localStorage.getItem("agent-visual-theme") || "classic"
     );
+    const [runControlsExpanded, setRunControlsExpanded] = useState(false);
     const [nowMs, setNowMs] = useState(Date.now());
 
     const agents = useMemo(() => deriveAgents(run?.events || []), [run]);
@@ -764,181 +757,192 @@ export default function App() {
     return (
         <div className="layout">
             <header>
-                <h1>Agent Visual Dashboard</h1>
-                <p>Watch input move through agents into outputs with live traffic-signal states.</p>
+                <h1>Mainframe Business Rules Extractor Agent</h1>
+                <p>
+                    Extracts business rules from legacy mainframe assets, validates outputs through dual-pipeline checks,
+                    and publishes reconciled modernization-ready artifacts.
+                </p>
                 <button
                     type="button"
-                    className="theme-toggle"
+                    className="theme-toggle-icon"
                     onClick={() => setTheme((prev) => (prev === "classic" ? "neon" : "classic"))}
+                    aria-label={theme === "neon" ? "Switch to classic theme" : "Switch to neon theme"}
+                    title={theme === "neon" ? "Switch to classic theme" : "Switch to neon theme"}
                 >
-                    Theme: {theme === "neon" ? "Neon" : "Classic"}
+                    <span className={`icon-sun ${theme === "classic" ? "active" : ""}`} aria-hidden="true" />
+                    <span className={`icon-moon ${theme === "neon" ? "active" : ""}`} aria-hidden="true" />
                 </button>
             </header>
 
-            <ExecutionSignalPanel
-                run={run}
-                runSignal={runSignal}
-                executionFlow={executionFlow}
-                showDualFlow={showDualFlow}
-                primaryFlow={primaryFlow}
-                claudeFlow={claudeFlow}
-                dualFlow={dualFlow}
-                completedCount={completedCount}
-                runningAgent={runningAgent}
-                failedCount={failedCount}
-                tokenUsage={displayedUsage}
-            />
-
-            <section className="panel">
-                <h2>Run Controls</h2>
-                <form onSubmit={onStart} className="grid">
-                    <label>
-                        <span>Pipeline</span>
-                        <input
-                            value={form.pipeline}
-                            onChange={(e) => setForm({ ...form, pipeline: e.target.value })}
-                        />
-                    </label>
-                    <label>
-                        <span>Input Path</span>
-                        <input
-                            value={form.input_path}
-                            onChange={(e) => setForm({ ...form, input_path: e.target.value })}
-                        />
-                    </label>
-                    <label>
-                        <span>Output Path</span>
-                        <input
-                            value={form.output_path}
-                            onChange={(e) => setForm({ ...form, output_path: e.target.value })}
-                        />
-                    </label>
-                    <label>
-                        <span>System Intent</span>
-                        <input
-                            value={form.system_intent}
-                            onChange={(e) => setForm({ ...form, system_intent: e.target.value })}
-                        />
-                    </label>
-                    <label className="check">
-                        <input
-                            type="checkbox"
-                            checked={form.use_ai}
-                            disabled={form.demo_mode}
-                            onChange={(e) => setForm({ ...form, use_ai: e.target.checked })}
-                        />
-                        <span>Use AI</span>
-                    </label>
-                    <label className="check">
-                        <input
-                            type="checkbox"
-                            checked={form.compare_with_claude || form.demo_mode}
-                            disabled={form.demo_mode}
-                            onChange={(e) => setForm({ ...form, compare_with_claude: e.target.checked })}
-                        />
-                        <span>Compare with Claude</span>
-                    </label>
-                    <label className="check">
-                        <input
-                            type="checkbox"
-                            checked={form.demo_mode}
-                            onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setForm({
-                                    ...form,
-                                    demo_mode: enabled,
-                                    use_ai: enabled ? false : form.use_ai,
-                                    compare_with_claude: enabled ? true : form.compare_with_claude
-                                });
-                            }}
-                        />
-                        <span>Demo Mode (non-AI dual phases)</span>
-                    </label>
-                    <label className="check">
-                        <input
-                            type="checkbox"
-                            checked={form.parallel_dual_run}
-                            onChange={(e) => setForm({ ...form, parallel_dual_run: e.target.checked })}
-                        />
-                        <span>Run OpenAI + Claude in Parallel</span>
-                    </label>
-                    <label className="check">
-                        <input
-                            type="checkbox"
-                            checked={form.optimize_tokens}
-                            onChange={(e) => setForm({ ...form, optimize_tokens: e.target.checked })}
-                        />
-                        <span>Optimize Token Usage</span>
-                    </label>
-                    <label>
-                        <span>Max Context Sources</span>
-                        <input
-                            type="number"
-                            min={4}
-                            max={30}
-                            value={form.token_max_sources}
-                            disabled={!form.optimize_tokens}
-                            onChange={(e) =>
-                                setForm({
-                                    ...form,
-                                    token_max_sources: Number(e.target.value || 12)
-                                })
-                            }
-                        />
-                    </label>
-                    <label>
-                        <span>Preview Chars Per Source</span>
-                        <input
-                            type="number"
-                            min={400}
-                            max={4000}
-                            step={100}
-                            value={form.token_preview_chars}
-                            disabled={!form.optimize_tokens}
-                            onChange={(e) =>
-                                setForm({
-                                    ...form,
-                                    token_preview_chars: Number(e.target.value || 1400)
-                                })
-                            }
-                        />
-                    </label>
-                    <label>
-                        <span>Primary Max Output Tokens (optional)</span>
-                        <input
-                            type="number"
-                            min={1}
-                            step={50}
-                            value={form.ai_max_output_tokens}
-                            disabled={!form.use_ai || form.demo_mode}
-                            onChange={(e) =>
-                                setForm({
-                                    ...form,
-                                    ai_max_output_tokens: e.target.value
-                                })
-                            }
-                        />
-                    </label>
-                    <label>
-                        <span>Claude Max Output Tokens (optional)</span>
-                        <input
-                            type="number"
-                            min={1}
-                            step={50}
-                            value={form.claude_max_output_tokens}
-                            disabled={!form.compare_with_claude || form.demo_mode}
-                            onChange={(e) =>
-                                setForm({
-                                    ...form,
-                                    claude_max_output_tokens: e.target.value
-                                })
-                            }
-                        />
-                    </label>
-                    <button type="submit">Start Run</button>
+            <section className="panel run-controls-panel">
+                <div className="run-controls-head">
+                    <h2>Run Controls</h2>
+                    <button
+                        type="button"
+                        className="run-controls-toggle"
+                        onClick={() => setRunControlsExpanded((prev) => !prev)}
+                        aria-expanded={runControlsExpanded}
+                    >
+                        {runControlsExpanded ? "Hide Advanced" : "Show Advanced"}
+                    </button>
+                </div>
+                <form onSubmit={onStart} className="run-controls-form">
+                    {runControlsExpanded ? (
+                        <div className="grid">
+                            <label>
+                                <span>Pipeline</span>
+                                <input
+                                    value={form.pipeline}
+                                    onChange={(e) => setForm({ ...form, pipeline: e.target.value })}
+                                />
+                            </label>
+                            <label>
+                                <span>Input Path</span>
+                                <input
+                                    value={form.input_path}
+                                    onChange={(e) => setForm({ ...form, input_path: e.target.value })}
+                                />
+                            </label>
+                            <label>
+                                <span>Output Path</span>
+                                <input
+                                    value={form.output_path}
+                                    onChange={(e) => setForm({ ...form, output_path: e.target.value })}
+                                />
+                            </label>
+                            <label>
+                                <span>System Intent</span>
+                                <input
+                                    value={form.system_intent}
+                                    onChange={(e) => setForm({ ...form, system_intent: e.target.value })}
+                                />
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={form.use_ai}
+                                    disabled={form.demo_mode}
+                                    onChange={(e) => setForm({ ...form, use_ai: e.target.checked })}
+                                />
+                                <span>Use AI</span>
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={form.compare_with_claude || form.demo_mode}
+                                    disabled={form.demo_mode}
+                                    onChange={(e) => setForm({ ...form, compare_with_claude: e.target.checked })}
+                                />
+                                <span>Enable Dual-Pipeline Verification (Claude)</span>
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={form.demo_mode}
+                                    onChange={(e) => {
+                                        const enabled = e.target.checked;
+                                        setForm({
+                                            ...form,
+                                            demo_mode: enabled,
+                                            use_ai: enabled ? false : form.use_ai,
+                                            compare_with_claude: enabled ? true : form.compare_with_claude
+                                        });
+                                    }}
+                                />
+                                <span>Demo Mode (non-AI dual phases)</span>
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={form.parallel_dual_run}
+                                    onChange={(e) => setForm({ ...form, parallel_dual_run: e.target.checked })}
+                                />
+                                <span>Run OpenAI + Claude in Parallel</span>
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={form.optimize_tokens}
+                                    onChange={(e) => setForm({ ...form, optimize_tokens: e.target.checked })}
+                                />
+                                <span>Optimize Token Usage</span>
+                            </label>
+                            <label>
+                                <span>Max Context Sources</span>
+                                <input
+                                    type="number"
+                                    min={4}
+                                    max={30}
+                                    value={form.token_max_sources}
+                                    disabled={!form.optimize_tokens}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            token_max_sources: Number(e.target.value || 12)
+                                        })
+                                    }
+                                />
+                            </label>
+                            <label>
+                                <span>Preview Chars Per Source</span>
+                                <input
+                                    type="number"
+                                    min={400}
+                                    max={4000}
+                                    step={100}
+                                    value={form.token_preview_chars}
+                                    disabled={!form.optimize_tokens}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            token_preview_chars: Number(e.target.value || 1400)
+                                        })
+                                    }
+                                />
+                            </label>
+                            <label>
+                                <span>Primary Max Output Tokens (optional)</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={50}
+                                    value={form.ai_max_output_tokens}
+                                    disabled={!form.use_ai || form.demo_mode}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            ai_max_output_tokens: e.target.value
+                                        })
+                                    }
+                                />
+                            </label>
+                            <label>
+                                <span>Claude Max Output Tokens (optional)</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={50}
+                                    value={form.claude_max_output_tokens}
+                                    disabled={!form.compare_with_claude || form.demo_mode}
+                                    onChange={(e) =>
+                                        setForm({
+                                            ...form,
+                                            claude_max_output_tokens: e.target.value
+                                        })
+                                    }
+                                />
+                            </label>
+                        </div>
+                    ) : null}
+                    <div className="run-controls-actions">
+                        <button type="submit">Start Run</button>
+                        {!runControlsExpanded ? (
+                            <span className="hint compact">Advanced settings are hidden. Expand to review or edit.</span>
+                        ) : null}
+                    </div>
                 </form>
-                {runId ? <p className="meta">Active Run ID: {runId}</p> : null}
-                {run ? (
+                {runControlsExpanded && runId ? <p className="meta">Active Run ID: {runId}</p> : null}
+                {runControlsExpanded && run ? (
                     <p className="meta">
                         Run Status: {run.status}
                         <span className="timer-badge">Elapsed: {formatElapsedSeconds(elapsedSeconds)}</span>
@@ -954,9 +958,23 @@ export default function App() {
                         ) : null}
                     </p>
                 ) : null}
-                <RunModeHints form={form} />
+                {runControlsExpanded ? <RunModeHints form={form} /> : null}
                 {error ? <p className="error">{error}</p> : null}
             </section>
+
+            <ExecutionSignalPanel
+                run={run}
+                runSignal={runSignal}
+                executionFlow={executionFlow}
+                showDualFlow={showDualFlow}
+                primaryFlow={primaryFlow}
+                claudeFlow={claudeFlow}
+                dualFlow={dualFlow}
+                completedCount={completedCount}
+                runningAgent={runningAgent}
+                failedCount={failedCount}
+                tokenUsage={displayedUsage}
+            />
 
             <section className="panel">
                 <h2>Token and Cost Breakdown</h2>
@@ -1016,7 +1034,7 @@ export default function App() {
                 <p className="hint">Cost uses model-rate estimates for showcase and may differ from billed provider totals.</p>
             </section>
 
-            <section className="panel">
+            <section className="panel agent-activity-panel">
                 <h2>Agent Activity</h2>
                 <table>
                     <thead>
