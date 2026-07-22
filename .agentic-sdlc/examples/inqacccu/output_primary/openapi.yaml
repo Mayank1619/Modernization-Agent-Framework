@@ -1,0 +1,121 @@
+```yaml
+openapi: 3.0.3
+info:
+  title: INQACCCU Customer-Account Relationships Inquiry API
+  version: 1.0.0
+  description: API for modernized INQACCCU system to retrieve customer-account relationships while preserving legacy behavior.
+
+servers:
+  - url: https://api.example.com/v1
+
+paths:
+  /api/accounts:
+    get:
+      summary: Retrieve Account Records
+      operationId: retrieveAccountRecords
+      parameters:
+        - name: customerNumber
+          in: query
+          required: true
+          description: The customer number to retrieve associated account records.
+          schema:
+            type: string
+            minLength: 10
+            maxLength: 10
+            pattern: '^[0-9]{10}$'
+      responses:
+        '200':
+          description: Successful retrieval of account records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: string
+                    enum: [Y, N]
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        accountEyecatcher:
+                          type: string
+                          maxLength: 4
+                        accountCustomerNumber:
+                          type: string
+                          maxLength: 10
+                        accountSortCode:
+                          type: string
+                          maxLength: 6
+                        accountNumber:
+                          type: string
+                          maxLength: 8
+                        accountType:
+                          type: string
+                          maxLength: 8
+                        accountInterestRate:
+                          type: number
+                          format: float
+        '400':
+          description: Invalid customer number format
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid customer number format"
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Customer not found"
+        '403':
+          description: Forbidden access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Access denied"
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.example.com/oauth/authorize
+          tokenUrl: https://auth.example.com/oauth/token
+          scopes:
+            read: Grants read access to account records
+
+  responses:
+    ErrorResponse:
+      description: Standard error response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "An error occurred"
+
+security:
+  - OAuth2: [read]
+
+tags:
+  - name: Accounts
+    description: Operations related to customer account inquiries
+
+```
