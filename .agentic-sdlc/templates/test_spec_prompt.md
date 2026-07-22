@@ -8,7 +8,9 @@ Include:
 - Unit tests
 - Integration tests
 - Contract tests
-- Negative and boundary scenarios
+- Negative tests
+- Boundary value tests
+- Equivalence partitioning tests
 - Rule-to-test mapping
 
 Minimum detail expectations:

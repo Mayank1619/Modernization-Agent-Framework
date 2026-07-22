@@ -20,11 +20,13 @@ Required structure:
 5. Validation and error semantics
 6. Security and compliance controls
 7. Non-functional behavior (latency, reliability, logging)
-8. Acceptance criteria table with IDs `AC-xxx`
+8. Acceptance criteria table with IDs `AC-xxx` in BDD format: Given..., When..., Then... with the inclusion of And... where multiple conditions or actions are necessary
 
 Quality constraints:
 - No placeholder sections.
 - No invented fields outside copybooks/requirements/spec artifacts.
 - Identify modernization enhancements explicitly.
+- Omit implementation details entirely
+- Content must be clear, scannable, and free of unnecessary jargon to allow for quick absorption and decision-making.
 
 Spec must be the source of truth for implementation.
