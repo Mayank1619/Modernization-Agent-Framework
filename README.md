@@ -149,6 +149,17 @@ Token optimization controls:
 - `--claude-max-output-tokens <n>`
 - `--auto-tune-tokens`
 - `--auto-tune-quality-threshold <0.0-1.0>`
+- `--align-to-speckit` (default on)
+- `--speckit-baseline <path-to-specs-folder>`
+- `--require-baseline-alignment`
+- `--baseline-alignment-threshold <0.0-1.0>`
+
+Spec Kit alignment behavior:
+
+- During generation, agents receive baseline artifact previews to calibrate section depth and structure.
+- During dual-model merge, merged artifacts are compared against baseline and a baseline-closer variant may be selected.
+- During auto-tune, quality scoring includes baseline alignment for better preset selection.
+- When `--require-baseline-alignment` is enabled, the run fails if average artifact alignment is below threshold.
 
 Token cap behavior:
 

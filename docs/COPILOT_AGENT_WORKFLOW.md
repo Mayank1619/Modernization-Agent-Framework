@@ -38,6 +38,8 @@ Starter prompt (Spec Kit flow):
 Use the latest imported Spec Kit bundle at <SPEC_KIT_IMPORT_PATH>.
 Implement <TASK_SCOPE> only.
 Run review command: <SPEC_KIT_REVIEW_COMMAND>.
+Run detail drift check:
+python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs <SPEC_KIT_IMPORT_PATH>/specs
 Fix in-scope findings and rerun review.
 Return: bundle applied summary, files changed, implemented task IDs, review result, blockers.
 ```
@@ -61,7 +63,8 @@ Use this exact sequence for a first successful run.
 6. Ask Copilot to implement `TASK-001` only.
 7. Run VS Code task: `test:python:all`.
 8. If tests fail, use prompt: `docs/prompts/copilot-task-refine-and-fix.prompt.md`.
-9. Commit only when tests pass and traceability summary is complete.
+9. Run detail drift validation against the imported Spec Kit bundle.
+10. Commit only when tests pass, detail drift validation passes, and traceability summary is complete.
 
 Spec Kit variant:
 
@@ -69,6 +72,7 @@ Spec Kit variant:
 2. Run VS Code task: `orchestrate:spec-to-speckit`.
 3. Use prompt: `docs/prompts/copilot-speckit-implement-review.prompt.md`.
 4. Provide `<SPEC_KIT_IMPORT_PATH>`, `<TASK_SCOPE>`, and `<SPEC_KIT_REVIEW_COMMAND>`.
+5. Run detail drift validator and fix only in-scope drift findings.
 
 ## 1) Generate or Refresh Artifacts
 
@@ -123,11 +127,30 @@ Provide values for:
 - `<TASK_SCOPE>`
 - `<SPEC_KIT_REVIEW_COMMAND>`
 
+## 2.2) Multi-Agent Spec Kit Generation Mode
+
+Use this when you want richer package generation with tighter control over over-detail or under-detail drift.
+
+Prompt template:
+
+- docs/prompts/copilot-multi-agent-speckit-orchestration.prompt.md
+
+Recommended flow:
+
+1. Run `orchestrate:spec-to-speckit`.
+2. Use the multi-agent orchestration prompt and provide:
+	- `<SPEC_KIT_IMPORT_PATH>`
+	- `<SPEC_KIT_REVIEW_COMMAND>`
+3. Execute phases in order (foundation, design/contracts, delivery readiness).
+4. Run detail drift validation and fix only in-scope findings.
+5. Return traceability and drift summary before implementation handoff.
+
 ## 3) Validate Immediately
 
 Run:
 
 - test:python:all
+- python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs <SPEC_KIT_IMPORT_PATH>/specs
 
 If failures occur, use:
 

@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 PRIMARY_PROMPT_RATE_PER_1K = 0.00015
 PRIMARY_COMPLETION_RATE_PER_1K = 0.0006
+TRACEABILITY_ID_REGEX = r"\b(?:FR|BR|NFR|AC|TC|TASK)-\d+\b"
 
 
 @dataclass
@@ -234,6 +235,40 @@ def parse_args() -> argparse.Namespace:
             "during token auto-tuning (0.0 to 1.0). Default: 0.92."
         ),
     )
+    parser.add_argument(
+        "--align-to-speckit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Enable baseline alignment using Spec Kit artifacts to keep generated detail "
+            "and structure close to expected package outputs."
+        ),
+    )
+    parser.add_argument(
+        "--speckit-baseline",
+        default=".agentic-sdlc/spec-kit-bundles/current/specs",
+        help=(
+            "Path to Spec Kit baseline specs folder used for alignment and scoring. "
+            "Ignored when --no-align-to-speckit is set."
+        ),
+    )
+    parser.add_argument(
+        "--require-baseline-alignment",
+        action="store_true",
+        help=(
+            "Fail the run when generated artifacts are not sufficiently aligned to "
+            "Spec Kit baseline outputs."
+        ),
+    )
+    parser.add_argument(
+        "--baseline-alignment-threshold",
+        type=float,
+        default=0.78,
+        help=(
+            "Minimum average baseline alignment ratio (0.0 to 1.0) required when "
+            "--require-baseline-alignment is enabled. Default: 0.78."
+        ),
+    )
     parser.epilog = (
         "Examples:\n"
         "  python run_pipeline.py\n"
@@ -287,8 +322,26 @@ def resolve_system_intent_path(args, repo_root: Path, framework_root: Path) -> s
     return str(resolved_system_intent)
 
 
+def resolve_baseline_specs_path(args, repo_root: Path, framework_root: Path) -> str:
+    if not args.align_to_speckit:
+        return ""
+
+    requested = (repo_root / args.speckit_baseline).resolve()
+    resolved = requested
+    if not resolved.exists():
+        resolved = (framework_root / args.speckit_baseline).resolve()
+    if not resolved.exists() or not resolved.is_dir():
+        print(
+            "[WARN] Spec Kit baseline folder not found. "
+            "Continuing without baseline alignment: "
+            f"{args.speckit_baseline}"
+        )
+        return ""
+    return str(resolved)
+
+
 def apply_ai_env_overrides(args) -> None:
-    if args.demo_mode:
+    if args.demo_mode or args.dry_run:
         os.environ["AGENTIC_AI_ENABLED"] = "false"
     elif args.use_ai:
         os.environ["AGENTIC_AI_ENABLED"] = "true"
@@ -329,6 +382,9 @@ def _run_single_model(
     llm_settings,
     llm_client,
     system_intent_path: str,
+    baseline_specs_path: str,
+    require_baseline_alignment: bool,
+    baseline_alignment_threshold: float,
 ) -> int:
     from orchestrator.pipeline import PipelineRunner
 
@@ -339,7 +395,10 @@ def _run_single_model(
         output_root=output_root,
         dry_run=args.dry_run,
         llm_client=llm_client,
-        extra_context={"system_intent_path": system_intent_path},
+        extra_context={
+            "system_intent_path": system_intent_path,
+            "baseline_specs_dir": baseline_specs_path,
+        },
     )
 
     results = runner.run()
@@ -352,9 +411,18 @@ def _run_single_model(
             "AI provider/model: "
             f"{llm_settings.provider}/{llm_settings.model} @ {llm_settings.base_url}"
         )
+    if baseline_specs_path:
+        print(f"Spec Kit baseline alignment: {baseline_specs_path}")
     for result in results:
         outputs = ", ".join(path.name for path in result.outputs)
         print(f"- {result.agent_name}: {outputs}")
+
+    _enforce_baseline_alignment_gate(
+        output_dir=output_root,
+        baseline_specs_path=baseline_specs_path,
+        enabled=require_baseline_alignment,
+        threshold=baseline_alignment_threshold,
+    )
 
     return 0 if results else 1
 
@@ -401,6 +469,9 @@ def _run_dual_model(
     llm_settings,
     llm_client,
     system_intent_path: str,
+    baseline_specs_path: str,
+    require_baseline_alignment: bool,
+    baseline_alignment_threshold: float,
 ) -> int:
     from orchestrator.dual_run import run_pipeline_dual_model
 
@@ -422,7 +493,11 @@ def _run_dual_model(
         output_root=output_root,
         primary_client=None if args.demo_mode else llm_client,
         secondary_client=claude_client,
-        extra_context={"system_intent_path": system_intent_path, "demo_delay_seconds": 2},
+        extra_context={
+            "system_intent_path": system_intent_path,
+            "baseline_specs_dir": baseline_specs_path,
+            "demo_delay_seconds": 2,
+        },
         parallel=args.parallel_dual_run,
         primary_dry_run=args.demo_mode,
         secondary_dry_run=args.demo_mode,
@@ -450,6 +525,15 @@ def _run_dual_model(
         f"{output_root / 'dual-model-analysis.md'}"
     )
     print(f"Artifacts compared: {len(comparisons)}")
+    if baseline_specs_path:
+        print(f"Spec Kit baseline alignment: {baseline_specs_path}")
+
+    _enforce_baseline_alignment_gate(
+        output_dir=output_root,
+        baseline_specs_path=baseline_specs_path,
+        enabled=require_baseline_alignment,
+        threshold=baseline_alignment_threshold,
+    )
     return 0 if comparisons else 1
 
 
@@ -479,12 +563,98 @@ def _estimate_primary_cost(token_usage: Dict[str, int]) -> float:
     )
 
 
-def _score_artifact_quality(output_dir: Path) -> float:
-    files = [
+def _artifact_files(output_dir: Path) -> List[Path]:
+    return [
         path
         for path in sorted(output_dir.glob("*"))
         if path.is_file() and path.suffix.lower() in {".md", ".yaml", ".yml"}
     ]
+
+
+def _traceability_ids(text: str) -> set[str]:
+    return {
+        match.upper()
+        for match in re.findall(TRACEABILITY_ID_REGEX, text or "", flags=re.IGNORECASE)
+    }
+
+
+def _artifact_alignment_ratio(generated_text: str, baseline_text: str) -> float:
+    if not generated_text or not baseline_text:
+        return 0.0
+
+    gen_len = len(generated_text)
+    base_len = len(baseline_text)
+    len_ratio_score = max(0.0, 1.0 - (abs(gen_len - base_len) / max(1, base_len)))
+
+    gen_ids = _traceability_ids(generated_text)
+    base_ids = _traceability_ids(baseline_text)
+    id_overlap_score = (
+        len(gen_ids.intersection(base_ids)) / len(base_ids)
+        if base_ids
+        else 1.0
+    )
+
+    return (len_ratio_score * 0.60) + (id_overlap_score * 0.40)
+
+
+def _artifact_alignment_ratios(output_dir: Path, baseline_specs_dir: Path) -> Dict[str, float]:
+    ratios: Dict[str, float] = {}
+    for file_path in _artifact_files(output_dir):
+        baseline_path = baseline_specs_dir / file_path.name
+        if not baseline_path.exists() or not baseline_path.is_file():
+            continue
+
+        generated_text = file_path.read_text(encoding="utf-8", errors="ignore")
+        baseline_text = baseline_path.read_text(encoding="utf-8", errors="ignore")
+        if not generated_text or not baseline_text:
+            continue
+
+        ratios[file_path.name] = _artifact_alignment_ratio(generated_text, baseline_text)
+    return ratios
+
+
+def _enforce_baseline_alignment_gate(
+    *,
+    output_dir: Path,
+    baseline_specs_path: str,
+    enabled: bool,
+    threshold: float,
+) -> None:
+    if not enabled:
+        return
+    if not baseline_specs_path:
+        raise ValueError(
+            "--require-baseline-alignment requires a valid baseline folder. "
+            "Set --speckit-baseline or disable the requirement flag."
+        )
+
+    ratios = _artifact_alignment_ratios(output_dir, Path(baseline_specs_path))
+    if not ratios:
+        raise ValueError(
+            "Baseline alignment gate could not evaluate any shared artifacts. "
+            "Verify generated output and baseline folder contents."
+        )
+
+    avg_ratio = sum(ratios.values()) / len(ratios)
+    print(
+        "[ALIGNMENT] "
+        f"Average baseline alignment={avg_ratio:.3f} "
+        f"Threshold={threshold:.3f} Checked={len(ratios)}"
+    )
+    if avg_ratio >= threshold:
+        return
+
+    worst = sorted(ratios.items(), key=lambda item: item[1])[:3]
+    worst_text = ", ".join(f"{name}:{score:.3f}" for name, score in worst)
+    raise ValueError(
+        "Baseline alignment gate failed. "
+        f"Average {avg_ratio:.3f} is below threshold {threshold:.3f}. "
+        f"Lowest artifacts: {worst_text}"
+    )
+
+
+def _score_artifact_quality(output_dir: Path, baseline_specs_dir: Path | None = None) -> float:
+    files = _artifact_files(output_dir)
     if not files:
         return 0.0
 
@@ -494,7 +664,7 @@ def _score_artifact_quality(output_dir: Path) -> float:
     id_count = 0
     filled_files = 0
 
-    id_pattern = re.compile(r"\b(?:FR|BR|NFR|AC|TC|TASK)-\d+\b", re.IGNORECASE)
+    id_pattern = re.compile(TRACEABILITY_ID_REGEX, re.IGNORECASE)
     for file_path in files:
         text = file_path.read_text(encoding="utf-8", errors="ignore")
         stripped = text.strip()
@@ -510,7 +680,28 @@ def _score_artifact_quality(output_dir: Path) -> float:
     structure_component = (heading_count * 0.18) + (table_count * 0.04)
     trace_component = id_count * 0.08
     completeness_component = completeness * 6.0
-    return length_component + structure_component + trace_component + completeness_component
+    base_score = length_component + structure_component + trace_component + completeness_component
+
+    if baseline_specs_dir is None or not baseline_specs_dir.exists():
+        return base_score
+
+    overlap_scores: List[float] = []
+    for file_path in files:
+        baseline_path = baseline_specs_dir / file_path.name
+        if not baseline_path.exists() or not baseline_path.is_file():
+            continue
+
+        generated_text = file_path.read_text(encoding="utf-8", errors="ignore")
+        baseline_text = baseline_path.read_text(encoding="utf-8", errors="ignore")
+        if not generated_text or not baseline_text:
+            continue
+        overlap_scores.append(_artifact_alignment_ratio(generated_text, baseline_text))
+
+    if not overlap_scores:
+        return base_score
+
+    baseline_alignment_component = (sum(overlap_scores) / len(overlap_scores)) * 5.0
+    return base_score + baseline_alignment_component
 
 
 def _copy_selected_artifacts(source_dir: Path, destination_dir: Path) -> None:
@@ -612,6 +803,9 @@ def _run_token_auto_tune(
     input_root: Path,
     output_root: Path,
     system_intent_path: str,
+    baseline_specs_path: str,
+    require_baseline_alignment: bool,
+    baseline_alignment_threshold: float,
 ) -> int:
     if args.demo_mode:
         raise ValueError("--auto-tune-tokens cannot be combined with --demo-mode")
@@ -628,6 +822,7 @@ def _run_token_auto_tune(
     threshold = min(1.0, max(0.0, float(args.auto_tune_quality_threshold)))
     presets = _build_tune_presets(args)
     run_results: List[TuneRunResult] = []
+    baseline_specs_dir = Path(baseline_specs_path) if baseline_specs_path else None
 
     print(f"[AUTO-TUNE] Evaluating {len(presets)} token presets...")
 
@@ -658,12 +853,15 @@ def _run_token_auto_tune(
             output_root=candidate_dir,
             dry_run=False,
             llm_client=llm_client,
-            extra_context={"system_intent_path": system_intent_path},
+            extra_context={
+                "system_intent_path": system_intent_path,
+                "baseline_specs_dir": baseline_specs_path,
+            },
         )
         results = runner.run()
         usage = _sum_token_usage(results)
         estimated_cost = _estimate_primary_cost(usage)
-        quality_score = _score_artifact_quality(candidate_dir)
+        quality_score = _score_artifact_quality(candidate_dir, baseline_specs_dir)
         run_results.append(
             TuneRunResult(
                 preset=preset,
@@ -694,6 +892,13 @@ def _run_token_auto_tune(
         runs=run_results,
         best=best,
         threshold=threshold,
+    )
+
+    _enforce_baseline_alignment_gate(
+        output_dir=output_root,
+        baseline_specs_path=baseline_specs_path,
+        enabled=require_baseline_alignment,
+        threshold=baseline_alignment_threshold,
     )
 
     print("[AUTO-TUNE] Completed.")
@@ -733,6 +938,8 @@ def main() -> int:
         output_root = (framework_root / args.output).resolve()
 
     system_intent_path = resolve_system_intent_path(args, repo_root, framework_root)
+    baseline_specs_path = resolve_baseline_specs_path(args, repo_root, framework_root)
+    baseline_alignment_threshold = min(1.0, max(0.0, float(args.baseline_alignment_threshold)))
 
     pipeline = load_pipeline_config(pipeline_path)
 
@@ -747,6 +954,9 @@ def main() -> int:
             input_root=input_root,
             output_root=output_root,
             system_intent_path=system_intent_path,
+            baseline_specs_path=baseline_specs_path,
+            require_baseline_alignment=args.require_baseline_alignment,
+            baseline_alignment_threshold=baseline_alignment_threshold,
         )
 
     llm_settings = load_llm_settings()
@@ -764,6 +974,9 @@ def main() -> int:
             llm_settings=llm_settings,
             llm_client=llm_client,
             system_intent_path=system_intent_path,
+            baseline_specs_path=baseline_specs_path,
+            require_baseline_alignment=args.require_baseline_alignment,
+            baseline_alignment_threshold=baseline_alignment_threshold,
         )
 
     return _run_single_model(
@@ -775,6 +988,9 @@ def main() -> int:
         llm_settings=llm_settings,
         llm_client=llm_client,
         system_intent_path=system_intent_path,
+        baseline_specs_path=baseline_specs_path,
+        require_baseline_alignment=args.require_baseline_alignment,
+        baseline_alignment_threshold=baseline_alignment_threshold,
     )
 
 

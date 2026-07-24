@@ -22,15 +22,21 @@ Implement only this task scope:
 - Preserve legacy behavior unless explicitly marked as modernization enhancement.
 - Align API contracts with openapi.yaml.
 - Implement tests for acceptance criteria tied to selected TASK IDs.
+- Keep detail level calibrated to Spec Kit authority: avoid both sparse summaries and speculative over-detail.
+- Prefer adding traceability links (FR/AC/TC/TASK IDs) over verbose narrative text.
 
 ## Deliverables
 
 1. Implement code for TASK IDs in scope only.
 2. Add/update tests proving acceptance criteria.
-3. Provide a traceability summary:
+3. Run detail drift validation after implementation:
+   - Imported Spec Kit baseline: `python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs <SPEC_KIT_IMPORT_PATH>/specs`
+   - Local bundle baseline: `python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs .agentic-sdlc/spec-kit-bundles/current/specs`
+4. Provide a traceability summary:
    - TASK IDs implemented
    - Files changed
    - Tests added/updated
+   - Detail drift validation result (pass/fail + key findings)
    - Open items or blockers
 
 ## Stop Conditions

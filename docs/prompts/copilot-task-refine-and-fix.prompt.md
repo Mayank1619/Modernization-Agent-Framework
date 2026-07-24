@@ -21,10 +21,16 @@ Refine implementation for:
 2. Do not weaken assertions to make tests pass.
 3. Keep API contracts and error codes consistent with spec/openapi.
 4. Update or add tests where behavior changes.
+5. Run detail drift validation and address only in-scope drift findings.
+
+Detail drift command:
+
+- `python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs <SPEC_KIT_IMPORT_PATH>/specs`
 
 ## Output Summary
 
 - Root causes addressed
 - Files changed
 - Tests updated
+- Detail drift validation result (pass/fail + key findings)
 - Any unresolved risk

@@ -4,6 +4,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 import math
 from pathlib import Path
+import re
 from typing import Callable, Dict, List
 
 from llm.client import LlmClient
@@ -19,6 +20,7 @@ class ArtifactComparison:
     primary_chars: int
     secondary_chars: int
     merged_chars: int
+    baseline_alignment_score: float | None
 
 
 CORE_MERGE_ARTIFACTS = {
@@ -30,6 +32,8 @@ CORE_MERGE_ARTIFACTS = {
     "test-spec.md",
     "openapi.yaml",
 }
+
+TRACE_ID_PATTERN = re.compile(r"\b(?:FR|BR|NFR|AC|TC|TASK)-\d+\b", re.IGNORECASE)
 
 
 def _read_text_if_exists(path: Path) -> str:
@@ -162,6 +166,78 @@ def _heuristic_select(primary_text: str, secondary_text: str) -> tuple[str, str]
     return primary_text, "primary"
 
 
+def _trace_id_set(text: str) -> set[str]:
+    return {match.group(0).upper() for match in TRACE_ID_PATTERN.finditer(text or "")}
+
+
+def _artifact_alignment_score(text: str, baseline_text: str) -> float:
+    if not text or not baseline_text:
+        return 0.0
+
+    text_len = len(text)
+    baseline_len = len(baseline_text)
+    len_score = max(0.0, 1.0 - (abs(text_len - baseline_len) / max(1, baseline_len)))
+
+    text_headings = _markdown_heading_score(text)
+    baseline_headings = _markdown_heading_score(baseline_text)
+    if baseline_headings > 0:
+        heading_score = max(
+            0.0,
+            1.0 - (abs(text_headings - baseline_headings) / max(1, baseline_headings)),
+        )
+    else:
+        heading_score = 1.0
+
+    text_ids = _trace_id_set(text)
+    baseline_ids = _trace_id_set(baseline_text)
+    if baseline_ids:
+        overlap = len(text_ids.intersection(baseline_ids))
+        id_score = overlap / len(baseline_ids)
+    else:
+        id_score = 1.0
+
+    return (len_score * 0.40) + (heading_score * 0.25) + (id_score * 0.35)
+
+
+def _select_best_aligned_candidate(
+    *,
+    baseline_text: str,
+    merged_text: str,
+    primary_text: str,
+    secondary_text: str,
+    selected_source: str,
+    rationale: str,
+) -> tuple[str, str, str]:
+    if not baseline_text:
+        return merged_text, selected_source, rationale
+
+    candidates = [
+        ("merged", merged_text),
+        ("primary", primary_text),
+        ("secondary", secondary_text),
+    ]
+    scored = [
+        (name, text, _artifact_alignment_score(text, baseline_text))
+        for name, text in candidates
+        if text
+    ]
+    if not scored:
+        return merged_text, selected_source, rationale
+
+    best_name, best_text, best_score = max(scored, key=lambda item: item[2])
+    current_score = _artifact_alignment_score(merged_text, baseline_text)
+
+    # Require a small margin to replace merged output with a baseline-closer variant.
+    if best_name != "merged" and best_score > (current_score + 0.05):
+        aligned_source = f"baseline-aligned:{best_name}"
+        aligned_rationale = (
+            f"Selected {best_name} variant for closer alignment to Spec Kit baseline structure and traceability."
+        )
+        return best_text, aligned_source, aligned_rationale
+
+    return merged_text, selected_source, rationale
+
+
 def _resolve_artifact_merge(
     artifact_name: str,
     primary_text: str,
@@ -234,6 +310,7 @@ def merge_dual_outputs(
     secondary_output: Path,
     merged_output: Path,
     merge_client: LlmClient | None,
+    baseline_specs_dir: Path | None = None,
     include_token_usage: bool = False,
 ) -> List[ArtifactComparison] | tuple[List[ArtifactComparison], Dict[str, int]]:
     merged_output.mkdir(parents=True, exist_ok=True)
@@ -254,6 +331,22 @@ def merge_dual_outputs(
             secondary_text=secondary_text,
             merge_client=merge_client,
         )
+        baseline_text = ""
+        alignment_score = None
+        if baseline_specs_dir is not None:
+            baseline_text = _read_text_if_exists(baseline_specs_dir / artifact_name)
+            if baseline_text:
+                alignment_score = _artifact_alignment_score(merged_text, baseline_text)
+        merged_text, selected_source, rationale = _select_best_aligned_candidate(
+            baseline_text=baseline_text,
+            merged_text=merged_text,
+            primary_text=primary_text,
+            secondary_text=secondary_text,
+            selected_source=selected_source,
+            rationale=rationale,
+        )
+        if baseline_text:
+            alignment_score = _artifact_alignment_score(merged_text, baseline_text)
         _add_usage(merge_token_usage, usage_delta)
 
         merged_path.write_text(merged_text, encoding="utf-8")
@@ -266,6 +359,7 @@ def merge_dual_outputs(
                 primary_chars=len(primary_text),
                 secondary_chars=len(secondary_text),
                 merged_chars=len(merged_text),
+                baseline_alignment_score=alignment_score,
             )
         )
 
@@ -274,13 +368,18 @@ def merge_dual_outputs(
         "",
         "This report compares primary-model and Claude-model artifacts and records how final outputs were selected.",
         "",
-        "| Artifact | Status | Selected | Primary chars | Claude chars | Merged chars | Notes |",
-        "|---|---|---|---:|---:|---:|---|",
+        "| Artifact | Status | Selected | Primary chars | Claude chars | Merged chars | Baseline alignment | Notes |",
+        "|---|---|---|---:|---:|---:|---:|---|",
     ]
     for item in comparisons:
+        alignment_text = (
+            f"{item.baseline_alignment_score:.3f}"
+            if item.baseline_alignment_score is not None
+            else "n/a"
+        )
         report_lines.append(
             f"| {item.name} | {item.status} | {item.selected_source} | "
-            f"{item.primary_chars} | {item.secondary_chars} | {item.merged_chars} | {item.rationale} |"
+            f"{item.primary_chars} | {item.secondary_chars} | {item.merged_chars} | {alignment_text} | {item.rationale} |"
         )
 
     (merged_output / "dual-model-analysis.md").write_text(
@@ -374,6 +473,7 @@ def _merge_outputs_with_events(
     output_root: Path,
     primary_client: LlmClient | None,
     use_llm_merge: bool,
+    baseline_specs_dir: Path | None,
     event_sink: Callable[[Dict[str, object]], None] | None,
 ) -> List[ArtifactComparison]:
     _emit_event(event_sink, {"event": "merge_started", "phase": "merge"})
@@ -382,6 +482,7 @@ def _merge_outputs_with_events(
         secondary_output=secondary_output,
         merged_output=output_root,
         merge_client=primary_client if use_llm_merge else None,
+        baseline_specs_dir=baseline_specs_dir,
         include_token_usage=True,
     )
     _emit_event(
@@ -433,11 +534,20 @@ def run_pipeline_dual_model(
     run_phases = _run_dual_phases_parallel if parallel else _run_dual_phases_sequential
     run_phases(_run_phase, event_sink)
 
+    baseline_specs_dir = None
+    if extra_context:
+        raw_baseline_dir = (extra_context.get("baseline_specs_dir") or "").strip()
+        if raw_baseline_dir:
+            candidate = Path(raw_baseline_dir)
+            if candidate.exists() and candidate.is_dir():
+                baseline_specs_dir = candidate
+
     return _merge_outputs_with_events(
         primary_output=primary_output,
         secondary_output=secondary_output,
         output_root=output_root,
         primary_client=primary_client,
         use_llm_merge=use_llm_merge,
+        baseline_specs_dir=baseline_specs_dir,
         event_sink=event_sink,
     )

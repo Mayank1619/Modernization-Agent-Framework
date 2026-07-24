@@ -157,6 +157,7 @@ class BaseAgent:
             preview_chunks.append(f"## Source: {name}\n\n{chunk}\n")
 
         previews = "\n".join(preview_chunks) if preview_chunks else "No input files found."
+        baseline_preview = self._load_baseline_preview(output_name, context)
 
         if not self.dry_run and self.llm_client is not None:
             system_prompt = (
@@ -171,11 +172,18 @@ class BaseAgent:
                 f"Purpose: {self.purpose}\n"
                 f"Target Output File: {output_name}\n"
                 f"Pipeline: {context.get('pipeline_name', 'unknown')}\n\n"
+                "Spec Kit Alignment Rules:\n"
+                "- When a baseline artifact preview is provided, align section ordering and detail depth to it.\n"
+                "- Preserve evidence-first fidelity; do not invent fields or behavior.\n"
+                "- Keep explicit traceability IDs (FR/BR/NFR/AC/TC/TASK) where applicable.\n"
+                "- Use baseline for structure calibration only, not for copying unsupported facts.\n\n"
                 "Intended System Notes:\n"
                 "- If `provided/system-intent.md` exists, treat it as mandatory target architecture.\n"
                 "- Keep all outputs consistent with intended stack, versions, security, and constraints.\n\n"
                 "Prompt Template:\n"
                 f"{prompt_text}\n\n"
+                "Structure Alignment Baseline:\n"
+                f"{baseline_preview}\n\n"
                 "Input Files:\n"
                 f"{files_list}\n\n"
                 "Context Budget:\n"
@@ -293,3 +301,15 @@ class BaseAgent:
             input_context.items(),
             key=lambda item: (self._priority_for_file(item[0]), item[0]),
         )
+
+    def _load_baseline_preview(self, output_name: str, context: Dict[str, str]) -> str:
+        baseline_dir = context.get("baseline_specs_dir", "").strip()
+        if not baseline_dir:
+            return "No baseline artifact provided."
+
+        candidate = Path(baseline_dir) / output_name
+        if not candidate.exists() or not candidate.is_file():
+            return "No baseline artifact provided for this output file."
+
+        text = candidate.read_text(encoding="utf-8", errors="ignore")
+        return self._trim_preview_text(text, max(1200, self._preview_chars()))

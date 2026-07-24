@@ -122,6 +122,12 @@ Token optimization options:
 python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --optimize-tokens --token-max-sources 12 --token-preview-chars 1400
 ```
 
+Enable strict Spec Kit alignment gate:
+
+```powershell
+python run_pipeline.py --pipeline mainframe_modernization --input .agentic-sdlc/examples/inqacc/legacy --output .agentic-sdlc/examples/inqacc/output --use-ai --align-to-speckit --speckit-baseline .agentic-sdlc/spec-kit-bundles/current/specs --require-baseline-alignment --baseline-alignment-threshold 0.78
+```
+
 Auto-tune token settings (single-model AI mode):
 
 ```powershell
@@ -260,7 +266,25 @@ UI run behavior:
 python -m pytest -q tests
 ```
 
-## 12. Fast Troubleshooting
+## 12. Validate Detail Drift Against Spec Kit Baseline
+
+Use this after implementation to catch artifacts that are too thin or too verbose compared to your Spec Kit source of truth.
+
+Imported Spec Kit baseline:
+
+```powershell
+python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs <SPEC_KIT_IMPORT_PATH>/specs
+```
+
+Local bundle baseline:
+
+```powershell
+python scripts/validate_detail_drift.py --generated-output .agentic-sdlc/examples/inqacc/output --bundle-specs .agentic-sdlc/spec-kit-bundles/current/specs
+```
+
+The command writes `detail-drift-report.md` in the generated output folder and exits non-zero on failure.
+
+## 13. Fast Troubleshooting
 
 - Error: `AGENTIC_AI_API_KEY is required for provider=openai`
 	- Cause: AI mode enabled without primary key.
