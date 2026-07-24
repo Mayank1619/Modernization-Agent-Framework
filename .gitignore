@@ -20,6 +20,13 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Frontend dependencies/build artifacts
+agent-visual-ui/node_modules/
+agent-visual-ui/dist/
+
+# Temporary source clones
+.tmp_bank_of_z/
+
 # Generated dual-model artifacts
 .agentic-sdlc/examples/inqacc/output_primary/
 .agentic-sdlc/examples/inqacc/output_claude/
